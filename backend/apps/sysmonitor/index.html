@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor del Sistema - ModevI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: white;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+        .header h1 {
+            font-size: 1.3rem;
+            font-weight: 400;
+        }
+        .header .dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 1.2rem;
+        }
+        .card-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            opacity: 0.5;
+            margin-bottom: 0.8rem;
+        }
+        .metric {
+            font-size: 2.5rem;
+            font-weight: 200;
+        }
+        .metric-unit {
+            font-size: 1rem;
+            opacity: 0.4;
+        }
+        .metric-sub {
+            font-size: 0.85rem;
+            opacity: 0.4;
+            margin-top: 0.3rem;
+        }
+        .bar-container {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            margin-top: 0.8rem;
+            overflow: hidden;
+        }
+        .bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .bar-cpu { background: linear-gradient(90deg, #6366f1, #818cf8); }
+        .bar-mem { background: linear-gradient(90deg, #ec4899, #f472b6); }
+        .bar-disk { background: linear-gradient(90deg, #10b981, #34d399); }
+        .bar-temp { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .chart {
+            height: 60px;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            margin-top: 0.8rem;
+        }
+        .chart-bar {
+            flex: 1;
+            background: rgba(99, 102, 241, 0.4);
+            border-radius: 2px 2px 0 0;
+            transition: height 0.3s;
+            min-height: 2px;
+        }
+        .hostname {
+            font-size: 0.75rem;
+            opacity: 0.3;
+            margin-top: 1.5rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="dot"></div>
+        <h1>Monitor del Sistema</h1>
+    </div>
+    <div class="grid">
+        <div class="card">
+            <div class="card-title">CPU</div>
+            <div class="metric" id="cpu">--<span class="metric-unit">%</span></div>
+            <div class="metric-sub" id="cpuInfo"></div>
+            <div class="bar-container"><div class="bar bar-cpu" id="cpuBar" style="width:0%"></div></div>
+            <div class="chart" id="cpuChart"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Memoria RAM</div>
+            <div class="metric" id="mem">--<span class="metric-unit">%</span></div>
+            <div class="metric-sub" id="memInfo"></div>
+            <div class="bar-container"><div class="bar bar-mem" id="memBar" style="width:0%"></div></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Almacenamiento</div>
+            <div class="metric" id="disk">--<span class="metric-unit">%</span></div>
+            <div class="metric-sub" id="diskInfo"></div>
+            <div class="bar-container"><div class="bar bar-disk" id="diskBar" style="width:0%"></div></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Temperatura CPU</div>
+            <div class="metric" id="temp">--<span class="metric-unit">°C</span></div>
+            <div class="metric-sub" id="tempInfo"></div>
+            <div class="bar-container"><div class="bar bar-temp" id="tempBar" style="width:0%"></div></div>
+        </div>
+    </div>
+    <div class="hostname" id="hostname"></div>
+
+    <script>
+        const API = window.location.origin;
+        const cpuHistory = new Array(30).fill(0);
+
+        function formatBytes(b) {
+            const gb = b / (1024**3);
+            return gb.toFixed(1) + ' GB';
+        }
+
+        function renderChart() {
+            const chart = document.getElementById('cpuChart');
+            chart.innerHTML = '';
+            cpuHistory.forEach(v => {
+                const bar = document.createElement('div');
+                bar.className = 'chart-bar';
+                bar.style.height = v + '%';
+                chart.appendChild(bar);
+            });
+        }
+
+        async function update() {
+            try {
+                const res = await fetch(API + '/api/system/info');
+                const d = await res.json();
+
+                document.getElementById('cpu').innerHTML = `${d.cpu_percent}<span class="metric-unit">%</span>`;
+                document.getElementById('cpuInfo').textContent = `${d.cpu_count} cores · ${d.cpu_freq ? Math.round(d.cpu_freq) + ' MHz' : ''}`;
+                document.getElementById('cpuBar').style.width = d.cpu_percent + '%';
+
+                cpuHistory.push(d.cpu_percent);
+                cpuHistory.shift();
+                renderChart();
+
+                document.getElementById('mem').innerHTML = `${d.memory_percent}<span class="metric-unit">%</span>`;
+                document.getElementById('memInfo').textContent = `${formatBytes(d.memory_used)} / ${formatBytes(d.memory_total)}`;
+                document.getElementById('memBar').style.width = d.memory_percent + '%';
+
+                document.getElementById('disk').innerHTML = `${d.disk_percent}<span class="metric-unit">%</span>`;
+                document.getElementById('diskInfo').textContent = `${formatBytes(d.disk_used)} / ${formatBytes(d.disk_total)}`;
+                document.getElementById('diskBar').style.width = d.disk_percent + '%';
+
+                const temp = d.cpu_temp ? d.cpu_temp.toFixed(1) : '--';
+                document.getElementById('temp').innerHTML = `${temp}<span class="metric-unit">°C</span>`;
+                document.getElementById('tempInfo').textContent = d.cpu_temp ? (d.cpu_temp < 60 ? 'Normal' : d.cpu_temp < 75 ? 'Elevada' : 'Alta') : '';
+                document.getElementById('tempBar').style.width = (d.cpu_temp ? Math.min(d.cpu_temp, 100) : 0) + '%';
+
+                document.getElementById('hostname').textContent = `${d.hostname} · ${d.os} · ${d.platform}`;
+            } catch (e) {
+                console.error('Error fetching system info:', e);
+            }
+        }
+
+        update();
+        setInterval(update, 2000);
+    </script>
+</body>
+</html>

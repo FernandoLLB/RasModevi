@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reloj Digital - ModevI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .time {
+            font-size: clamp(4rem, 15vw, 10rem);
+            font-weight: 200;
+            letter-spacing: 0.05em;
+            text-shadow: 0 0 40px rgba(99, 102, 241, 0.5);
+        }
+        .seconds {
+            font-size: clamp(1.5rem, 5vw, 3rem);
+            opacity: 0.5;
+            vertical-align: super;
+            font-weight: 300;
+        }
+        .date {
+            font-size: clamp(1rem, 3vw, 1.8rem);
+            opacity: 0.6;
+            margin-top: 1rem;
+            font-weight: 300;
+            text-transform: capitalize;
+        }
+        .dots {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .dot {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); opacity: 0.3; }
+            50% { transform: translateY(-20px); opacity: 0.8; }
+        }
+        .content { position: relative; z-index: 1; text-align: center; }
+        .greeting {
+            font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+            opacity: 0.4;
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+    </style>
+</head>
+<body>
+    <div class="dots" id="dots"></div>
+    <div class="content">
+        <div class="greeting" id="greeting"></div>
+        <div class="time" id="time"></div>
+        <div class="date" id="date"></div>
+    </div>
+    <script>
+        const days = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+        const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+        function update() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('time').innerHTML = `${h}:${m}<span class="seconds">${s}</span>`;
+            document.getElementById('date').textContent = `${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]} de ${now.getFullYear()}`;
+
+            const hour = now.getHours();
+            let greeting = 'Buenas noches';
+            if (hour >= 6 && hour < 13) greeting = 'Buenos días';
+            else if (hour >= 13 && hour < 20) greeting = 'Buenas tardes';
+            document.getElementById('greeting').textContent = greeting;
+        }
+
+        // Floating dots
+        const dotsContainer = document.getElementById('dots');
+        for (let i = 0; i < 30; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            dot.style.left = Math.random() * 100 + '%';
+            dot.style.top = Math.random() * 100 + '%';
+            dot.style.animationDelay = Math.random() * 6 + 's';
+            dot.style.animationDuration = (4 + Math.random() * 4) + 's';
+            dotsContainer.appendChild(dot);
+        }
+
+        update();
+        setInterval(update, 1000);
+    </script>
+</body>
+</html>

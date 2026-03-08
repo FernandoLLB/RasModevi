@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablón de Notas - ModevI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: white;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+        .header h1 { font-size: 1.3rem; font-weight: 400; }
+        .btn-new {
+            background: #6366f1;
+            border: none;
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .btn-new:hover { background: #4f46e5; }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .note {
+            border-radius: 12px;
+            padding: 1rem;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .note:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .note-title {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: rgba(0,0,0,0.8);
+        }
+        .note-content {
+            flex: 1;
+            font-size: 0.85rem;
+            color: rgba(0,0,0,0.6);
+            line-height: 1.4;
+            overflow: hidden;
+        }
+        .note-date {
+            font-size: 0.7rem;
+            color: rgba(0,0,0,0.35);
+            margin-top: 0.5rem;
+        }
+        .note-actions {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            display: flex;
+            gap: 0.3rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .note:hover .note-actions { opacity: 1; }
+        .note-actions button {
+            background: rgba(0,0,0,0.15);
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .note-actions button:hover { background: rgba(0,0,0,0.25); }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 480px;
+        }
+        .modal h2 { font-weight: 400; margin-bottom: 1rem; font-size: 1.2rem; }
+        .modal input, .modal textarea {
+            width: 100%;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            padding: 0.7rem;
+            color: white;
+            font-family: inherit;
+            font-size: 0.95rem;
+            margin-bottom: 0.8rem;
+            outline: none;
+        }
+        .modal textarea { height: 120px; resize: vertical; }
+        .modal input:focus, .modal textarea:focus { border-color: #6366f1; }
+        .color-picker {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .color-opt {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: border-color 0.2s;
+        }
+        .color-opt.selected { border-color: white; }
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+        .modal-actions button {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-cancel { background: rgba(255,255,255,0.1); color: white; }
+        .btn-save { background: #6366f1; color: white; }
+        .btn-cancel:hover { background: rgba(255,255,255,0.15); }
+        .btn-save:hover { background: #4f46e5; }
+        .empty {
+            text-align: center;
+            opacity: 0.3;
+            padding: 4rem;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Tablón de Notas</h1>
+        <button class="btn-new" onclick="openModal()">+ Nueva nota</button>
+    </div>
+    <div class="board" id="board"></div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <h2 id="modalTitle">Nueva nota</h2>
+            <input type="text" id="noteTitle" placeholder="Título">
+            <textarea id="noteContent" placeholder="Escribe tu nota..."></textarea>
+            <div class="color-picker" id="colorPicker"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+                <button class="btn-save" onclick="saveNote()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin + '/api/notes';
+        const COLORS = ['#fef08a','#bfdbfe','#bbf7d0','#fecaca','#e9d5ff','#fed7aa','#fce7f3'];
+        let notes = [];
+        let editingId = null;
+        let selectedColor = COLORS[0];
+
+        async function loadNotes() {
+            const res = await fetch(API);
+            notes = await res.json();
+            renderNotes();
+        }
+
+        function renderNotes() {
+            const board = document.getElementById('board');
+            if (notes.length === 0) {
+                board.innerHTML = '<div class="empty">No hay notas todavía.<br>Crea tu primera nota.</div>';
+                return;
+            }
+            board.innerHTML = notes.map(n => `
+                <div class="note" style="background:${n.color}" onclick="editNote(${n.id})">
+                    <div class="note-actions">
+                        <button onclick="event.stopPropagation();togglePin(${n.id})">${n.pinned ? '📌' : '📍'}</button>
+                        <button onclick="event.stopPropagation();deleteNote(${n.id})">🗑</button>
+                    </div>
+                    <div class="note-title">${escHtml(n.title)}</div>
+                    <div class="note-content">${escHtml(n.content)}</div>
+                    <div class="note-date">${n.updated_at ? new Date(n.updated_at).toLocaleString('es') : ''}</div>
+                </div>
+            `).join('');
+        }
+
+        function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        function renderColors() {
+            document.getElementById('colorPicker').innerHTML = COLORS.map(c =>
+                `<div class="color-opt ${c===selectedColor?'selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`
+            ).join('');
+        }
+
+        function selectColor(c) { selectedColor = c; renderColors(); }
+
+        function openModal(id) {
+            editingId = id || null;
+            document.getElementById('modalTitle').textContent = id ? 'Editar nota' : 'Nueva nota';
+            if (id) {
+                const n = notes.find(x => x.id === id);
+                document.getElementById('noteTitle').value = n.title;
+                document.getElementById('noteContent').value = n.content;
+                selectedColor = n.color;
+            } else {
+                document.getElementById('noteTitle').value = '';
+                document.getElementById('noteContent').value = '';
+                selectedColor = COLORS[0];
+            }
+            renderColors();
+            document.getElementById('modal').classList.add('visible');
+        }
+
+        function closeModal() { document.getElementById('modal').classList.remove('visible'); }
+        function editNote(id) { openModal(id); }
+
+        async function saveNote() {
+            const title = document.getElementById('noteTitle').value.trim();
+            const content = document.getElementById('noteContent').value.trim();
+            if (!title) return;
+
+            if (editingId) {
+                await fetch(`${API}/${editingId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({title, content, color: selectedColor})
+                });
+            } else {
+                await fetch(API, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({title, content, color: selectedColor})
+                });
+            }
+            closeModal();
+            loadNotes();
+        }
+
+        async function deleteNote(id) {
+            await fetch(`${API}/${id}`, {method:'DELETE'});
+            loadNotes();
+        }
+
+        async function togglePin(id) {
+            const n = notes.find(x => x.id === id);
+            await fetch(`${API}/${id}`, {
+                method:'PUT',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({pinned: !n.pinned})
+            });
+            loadNotes();
+        }
+
+        loadNotes();
+    </script>
+</body>
+</html>
