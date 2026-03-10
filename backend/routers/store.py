@@ -102,6 +102,12 @@ async def download_app_package(app_id: int, db: Session = Depends(get_platform_d
             detail={"detail": "App not found or not published", "code": "APP_NOT_FOUND"},
         )
     zip_path = PACKAGES_DIR / str(app_id) / "app.zip"
+
+    # If file missing (e.g. Railway restart), restore from DB
+    if not zip_path.exists() and app.package_data:
+        zip_path.parent.mkdir(parents=True, exist_ok=True)
+        zip_path.write_bytes(app.package_data)
+
     if not zip_path.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

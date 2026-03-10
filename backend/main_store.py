@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from database import init_db
+from database import init_db, platform_engine as get_platform_engine
 from seed import seed
 from routers import auth, store, developer, admin, ai
 
@@ -33,9 +33,22 @@ STORE_DIR = BACKEND_DIR / "store"
 INSTALLED_DIR = BACKEND_DIR / "installed"
 
 
+def _migrate():
+    """Add new columns to existing tables that create_all won't touch."""
+    from sqlalchemy import text
+    engine = get_platform_engine
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE store_apps ADD COLUMN package_data LONGBLOB"))
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    _migrate()
     seed()
     (STORE_DIR / "packages").mkdir(parents=True, exist_ok=True)
     (STORE_DIR / "icons").mkdir(parents=True, exist_ok=True)

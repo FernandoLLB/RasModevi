@@ -464,12 +464,13 @@ async def _stream(
     db.commit()
     db.refresh(store_app)
 
-    # Save ZIP package
+    # Save ZIP package — to disk and to DB (DB survives Railway restarts)
     pkg_dir = PACKAGES_DIR / str(store_app.id)
     pkg_dir.mkdir(parents=True, exist_ok=True)
     zip_path = pkg_dir / "app.zip"
     zip_path.write_bytes(zip_bytes)
     store_app.package_path = str(zip_path)
+    store_app.package_data = zip_bytes
     db.commit()
 
     # Extract to installed/ and register on device DB
