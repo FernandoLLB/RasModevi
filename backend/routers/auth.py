@@ -12,15 +12,15 @@ from auth import (
     verify_password,
     verify_token,
 )
-from database import get_db
-from models import User
+from database import get_platform_db
+from models_platform import User
 from schemas import LoginRequest, RefreshRequest, Token, UserCreate, UserOut
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def register(body: UserCreate, db: Session = Depends(get_db)):
+async def register(body: UserCreate, db: Session = Depends(get_platform_db)):
     if db.query(User).filter(User.username == body.username).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -44,7 +44,7 @@ async def register(body: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-async def login(body: LoginRequest, db: Session = Depends(get_db)):
+async def login(body: LoginRequest, db: Session = Depends(get_platform_db)):
     user = db.query(User).filter(User.username == body.username).first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
@@ -67,7 +67,7 @@ async def me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
+async def refresh(body: RefreshRequest, db: Session = Depends(get_platform_db)):
     payload = verify_token(body.refresh_token)
     if payload.get("type") != "refresh":
         raise HTTPException(

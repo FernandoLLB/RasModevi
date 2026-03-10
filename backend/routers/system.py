@@ -8,8 +8,8 @@ import psutil
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import ActivityLog, InstalledApp
+from database import get_device_db
+from models_device import ActivityLog, InstalledApp
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
@@ -26,8 +26,7 @@ async def system_info():
 
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
-    boot_time = psutil.boot_time()
-    uptime = int(time.time() - boot_time)
+    uptime = int(time.time() - psutil.boot_time())
 
     return {
         "hostname": platform.node(),
@@ -49,7 +48,7 @@ async def system_info():
 
 
 @router.get("/stats")
-async def app_stats(db: Session = Depends(get_db)):
+async def app_stats(db: Session = Depends(get_device_db)):
     total_installed = db.query(InstalledApp).count()
     active_app = db.query(InstalledApp).filter(InstalledApp.is_active == True).first()
     recent_activity = (

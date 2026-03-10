@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from database import get_db
-from models import Note
+from database import get_device_db
+from models_device import Note
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
@@ -21,7 +21,7 @@ class NoteUpdate(BaseModel):
 
 
 @router.get("/")
-def list_notes(db: Session = Depends(get_db)):
+def list_notes(db: Session = Depends(get_device_db)):
     notes = db.query(Note).order_by(Note.pinned.desc(), Note.updated_at.desc()).all()
     return [
         {
@@ -38,7 +38,7 @@ def list_notes(db: Session = Depends(get_db)):
 
 
 @router.post("/")
-def create_note(note: NoteCreate, db: Session = Depends(get_db)):
+def create_note(note: NoteCreate, db: Session = Depends(get_device_db)):
     new_note = Note(title=note.title, content=note.content, color=note.color)
     db.add(new_note)
     db.commit()
@@ -47,7 +47,7 @@ def create_note(note: NoteCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{note_id}")
-def update_note(note_id: int, note: NoteUpdate, db: Session = Depends(get_db)):
+def update_note(note_id: int, note: NoteUpdate, db: Session = Depends(get_device_db)):
     existing = db.query(Note).filter(Note.id == note_id).first()
     if not existing:
         raise HTTPException(404, "Note not found")
@@ -64,7 +64,7 @@ def update_note(note_id: int, note: NoteUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{note_id}")
-def delete_note(note_id: int, db: Session = Depends(get_db)):
+def delete_note(note_id: int, db: Session = Depends(get_device_db)):
     note = db.query(Note).filter(Note.id == note_id).first()
     if not note:
         raise HTTPException(404, "Note not found")

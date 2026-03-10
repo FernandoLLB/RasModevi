@@ -8,8 +8,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from auth import get_current_user
-from database import get_db
-from models import AppRating, Category, HardwareTag, StoreApp, User
+from database import get_platform_db
+from models_platform import AppRating, Category, HardwareTag, StoreApp, User
 from schemas import (
     AppRatingCreate,
     AppRatingOut,
@@ -28,12 +28,12 @@ router = APIRouter(prefix="/api/store", tags=["store"])
 
 
 @router.get("/categories", response_model=List[CategoryOut])
-async def list_categories(db: Session = Depends(get_db)):
+async def list_categories(db: Session = Depends(get_platform_db)):
     return db.query(Category).order_by(Category.sort_order).all()
 
 
 @router.get("/hardware-tags", response_model=List[HardwareTagOut])
-async def list_hardware_tags(db: Session = Depends(get_db)):
+async def list_hardware_tags(db: Session = Depends(get_platform_db)):
     return db.query(HardwareTag).order_by(HardwareTag.name).all()
 
 
@@ -50,7 +50,7 @@ async def list_apps(
     sort: str = Query("downloads", pattern="^(downloads|rating|newest)$"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     q = (
         db.query(StoreApp)
@@ -74,9 +74,7 @@ async def list_apps(
 
     if search:
         term = f"%{search}%"
-        q = q.filter(
-            StoreApp.name.ilike(term) | StoreApp.description.ilike(term)
-        )
+        q = q.filter(StoreApp.name.ilike(term) | StoreApp.description.ilike(term))
 
     if sort == "downloads":
         q = q.order_by(StoreApp.downloads_count.desc())
@@ -90,7 +88,7 @@ async def list_apps(
 
 
 @router.get("/apps/{slug}", response_model=StoreAppDetail)
-async def get_app(slug: str, db: Session = Depends(get_db)):
+async def get_app(slug: str, db: Session = Depends(get_platform_db)):
     app = (
         db.query(StoreApp)
         .options(
@@ -114,7 +112,7 @@ async def get_app(slug: str, db: Session = Depends(get_db)):
 
 
 @router.get("/apps/{slug}/ratings", response_model=List[AppRatingOut])
-async def list_ratings(slug: str, db: Session = Depends(get_db)):
+async def list_ratings(slug: str, db: Session = Depends(get_platform_db)):
     app = db.query(StoreApp).filter(StoreApp.slug == slug).first()
     if not app:
         raise HTTPException(
@@ -135,7 +133,7 @@ async def rate_app(
     slug: str,
     body: AppRatingCreate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     app = (
         db.query(StoreApp)
@@ -179,7 +177,7 @@ async def rate_app(
 async def delete_rating(
     slug: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     app = db.query(StoreApp).filter(StoreApp.slug == slug).first()
     if not app:
@@ -209,7 +207,6 @@ async def delete_rating(
 
 
 def _recalc_rating(db: Session, app: StoreApp) -> None:
-    """Recalculate avg_rating and ratings_count for an app."""
     result = (
         db.query(func.avg(AppRating.rating), func.count(AppRating.id))
         .filter(AppRating.store_app_id == app.id)

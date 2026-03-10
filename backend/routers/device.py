@@ -10,9 +10,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
-from database import get_db
-from models import ActivityLog, InstalledApp, StoreApp
-from schemas import InstalledAppOut
+from database import get_device_db, get_platform_db
+from models_device import ActivityLog, InstalledApp
+from models_platform import StoreApp, User
+from schemas import InstalledAppOut, StoreAppOut
 
 router = APIRouter(prefix="/api/device", tags=["device"])
 
@@ -21,29 +22,72 @@ PACKAGES_DIR = BACKEND_DIR / "store" / "packages"
 INSTALLED_DIR = BACKEND_DIR / "installed"
 
 
-@router.get("/apps", response_model=List[InstalledAppOut])
-async def list_installed_apps(db: Session = Depends(get_db)):
-    return (
-        db.query(InstalledApp)
-        .options(
-            joinedload(InstalledApp.store_app).joinedload(StoreApp.developer)
+# ---------------------------------------------------------------------------
+# Helper — enrich InstalledApp list with StoreApp data from platform DB
+# ---------------------------------------------------------------------------
+
+
+def _enrich(
+    installed_list: list[InstalledApp],
+    platform_db: Session,
+) -> list[InstalledAppOut]:
+    """Merge platform store app data into device installed app records."""
+    store_app_ids = [a.store_app_id for a in installed_list if a.store_app_id is not None]
+    store_apps: dict[int, StoreApp] = {}
+    if store_app_ids:
+        rows = (
+            platform_db.query(StoreApp)
+            .options(joinedload(StoreApp.developer))
+            .filter(StoreApp.id.in_(store_app_ids))
+            .all()
         )
+        store_apps = {r.id: r for r in rows}
+
+    result = []
+    for inst in installed_list:
+        sa = store_apps.get(inst.store_app_id) if inst.store_app_id else None
+        result.append(
+            InstalledAppOut(
+                id=inst.id,
+                store_app_id=inst.store_app_id,
+                install_date=inst.install_date,
+                is_active=inst.is_active,
+                last_launched=inst.last_launched,
+                launch_count=inst.launch_count,
+                install_path=inst.install_path,
+                store_app=StoreAppOut.model_validate(sa) if sa else None,
+            )
+        )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/apps", response_model=List[InstalledAppOut])
+async def list_installed_apps(
+    device_db: Session = Depends(get_device_db),
+    platform_db: Session = Depends(get_platform_db),
+):
+    installed = (
+        device_db.query(InstalledApp)
         .order_by(InstalledApp.install_date.desc())
         .all()
     )
+    return _enrich(installed, platform_db)
 
 
 @router.get("/apps/active", response_model=Optional[InstalledAppOut])
-async def get_active_app(db: Session = Depends(get_db)):
-    app = (
-        db.query(InstalledApp)
-        .options(
-            joinedload(InstalledApp.store_app).joinedload(StoreApp.developer)
-        )
-        .filter(InstalledApp.is_active == True)
-        .first()
-    )
-    return app
+async def get_active_app(
+    device_db: Session = Depends(get_device_db),
+    platform_db: Session = Depends(get_platform_db),
+):
+    inst = device_db.query(InstalledApp).filter(InstalledApp.is_active == True).first()
+    if not inst:
+        return None
+    return _enrich([inst], platform_db)[0]
 
 
 @router.post(
@@ -51,9 +95,13 @@ async def get_active_app(db: Session = Depends(get_db)):
     response_model=InstalledAppOut,
     status_code=status.HTTP_201_CREATED,
 )
-async def install_app(store_app_id: int, db: Session = Depends(get_db)):
+async def install_app(
+    store_app_id: int,
+    device_db: Session = Depends(get_device_db),
+    platform_db: Session = Depends(get_platform_db),
+):
     store_app = (
-        db.query(StoreApp)
+        platform_db.query(StoreApp)
         .options(joinedload(StoreApp.developer))
         .filter(StoreApp.id == store_app_id, StoreApp.status == "published")
         .first()
@@ -64,23 +112,19 @@ async def install_app(store_app_id: int, db: Session = Depends(get_db)):
             detail={"detail": "Store app not found or not published", "code": "APP_NOT_FOUND"},
         )
 
-    existing = (
-        db.query(InstalledApp).filter(InstalledApp.store_app_id == store_app_id).first()
-    )
+    existing = device_db.query(InstalledApp).filter(
+        InstalledApp.store_app_id == store_app_id
+    ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"detail": "App is already installed", "code": "ALREADY_INSTALLED"},
         )
 
-    installed = InstalledApp(
-        store_app_id=store_app_id,
-        is_active=False,
-    )
-    db.add(installed)
-    db.flush()
+    installed = InstalledApp(store_app_id=store_app_id, is_active=False)
+    device_db.add(installed)
+    device_db.flush()
 
-    # Try to extract ZIP if package exists
     zip_path = PACKAGES_DIR / str(store_app_id) / "app.zip"
     install_path = INSTALLED_DIR / str(installed.id)
     if zip_path.exists():
@@ -89,107 +133,106 @@ async def install_app(store_app_id: int, db: Session = Depends(get_db)):
             zf.extractall(install_path)
         installed.install_path = str(install_path)
     else:
-        # For demo apps, point to existing apps directory
         demo_path = BACKEND_DIR / "apps" / (store_app.slug or "")
         if demo_path.exists():
-            installed.install_path = str(demo_path)
+            installed.install_path = f"apps/{store_app.slug}"
         else:
             installed.install_path = str(install_path)
 
-    # Increment downloads count
+    # Increment downloads on the platform DB
     store_app.downloads_count = (store_app.downloads_count or 0) + 1
+    platform_db.commit()
 
-    db.add(ActivityLog(
+    device_db.add(ActivityLog(
         installed_app_id=installed.id,
         action="install",
         details=f"Installed '{store_app.name}' v{store_app.version}",
     ))
-    db.commit()
-    db.refresh(installed)
-    return installed
+    device_db.commit()
+    device_db.refresh(installed)
+    return _enrich([installed], platform_db)[0]
 
 
 @router.post("/apps/{installed_id}/uninstall", status_code=status.HTTP_204_NO_CONTENT)
-async def uninstall_app(installed_id: int, db: Session = Depends(get_db)):
-    installed = (
-        db.query(InstalledApp)
-        .options(joinedload(InstalledApp.store_app))
-        .filter(InstalledApp.id == installed_id)
-        .first()
-    )
+async def uninstall_app(
+    installed_id: int,
+    device_db: Session = Depends(get_device_db),
+):
+    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
     if not installed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"detail": "Installed app not found", "code": "NOT_FOUND"},
         )
 
-    # Remove extracted files only if they are in the installed/ directory
     if installed.install_path:
         path = Path(installed.install_path)
         if INSTALLED_DIR in path.parents and path.exists():
             shutil.rmtree(path, ignore_errors=True)
 
-    db.add(ActivityLog(
+    device_db.add(ActivityLog(
         installed_app_id=installed.id,
         action="uninstall",
         details=f"Uninstalled app id={installed_id}",
     ))
-    db.delete(installed)
-    db.commit()
+    device_db.delete(installed)
+    device_db.commit()
 
 
 @router.post("/apps/{installed_id}/activate", response_model=InstalledAppOut)
-async def activate_app(installed_id: int, db: Session = Depends(get_db)):
-    installed = (
-        db.query(InstalledApp)
-        .options(
-            joinedload(InstalledApp.store_app).joinedload(StoreApp.developer)
-        )
-        .filter(InstalledApp.id == installed_id)
-        .first()
-    )
+async def activate_app(
+    installed_id: int,
+    device_db: Session = Depends(get_device_db),
+    platform_db: Session = Depends(get_platform_db),
+):
+    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
     if not installed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"detail": "Installed app not found", "code": "NOT_FOUND"},
         )
 
-    # Deactivate all others
-    db.query(InstalledApp).filter(InstalledApp.id != installed_id).update(
+    device_db.query(InstalledApp).filter(InstalledApp.id != installed_id).update(
         {"is_active": False}
     )
     installed.is_active = True
 
-    db.add(ActivityLog(
+    device_db.add(ActivityLog(
         installed_app_id=installed.id,
         action="activate",
         details=f"Activated app id={installed_id}",
     ))
-    db.commit()
-    db.refresh(installed)
-    return installed
+    device_db.commit()
+    device_db.refresh(installed)
+    return _enrich([installed], platform_db)[0]
 
 
 @router.post("/apps/{installed_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)
-async def deactivate_app(installed_id: int, db: Session = Depends(get_db)):
-    installed = db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
+async def deactivate_app(
+    installed_id: int,
+    device_db: Session = Depends(get_device_db),
+):
+    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
     if not installed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"detail": "Installed app not found", "code": "NOT_FOUND"},
         )
     installed.is_active = False
-    db.add(ActivityLog(
+    device_db.add(ActivityLog(
         installed_app_id=installed.id,
         action="deactivate",
         details=f"Deactivated app id={installed_id}",
     ))
-    db.commit()
+    device_db.commit()
 
 
 @router.post("/apps/{installed_id}/launch", status_code=status.HTTP_204_NO_CONTENT)
-async def launch_app(installed_id: int, db: Session = Depends(get_db)):
-    installed = db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
+async def launch_app(
+    installed_id: int,
+    device_db: Session = Depends(get_device_db),
+):
+    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
     if not installed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -197,9 +240,9 @@ async def launch_app(installed_id: int, db: Session = Depends(get_db)):
         )
     installed.launch_count = (installed.launch_count or 0) + 1
     installed.last_launched = datetime.utcnow()
-    db.add(ActivityLog(
+    device_db.add(ActivityLog(
         installed_app_id=installed.id,
         action="launch",
         details=f"Launched app id={installed_id}",
     ))
-    db.commit()
+    device_db.commit()

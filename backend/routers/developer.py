@@ -13,8 +13,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
 from auth import require_developer
-from database import get_db
-from models import StoreApp, User
+from database import get_platform_db
+from models_platform import StoreApp, User
 from schemas import StoreAppCreate, StoreAppDetail, StoreAppOut, StoreAppUpdate
 
 router = APIRouter(prefix="/api/developer", tags=["developer"])
@@ -36,7 +36,7 @@ def _slugify(name: str) -> str:
 @router.get("/apps", response_model=List[StoreAppOut])
 async def list_developer_apps(
     current_user: User = Depends(require_developer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     return (
         db.query(StoreApp)
@@ -51,7 +51,7 @@ async def list_developer_apps(
 async def create_app(
     body: StoreAppCreate,
     current_user: User = Depends(require_developer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     base_slug = _slugify(body.name)
     slug = base_slug
@@ -83,7 +83,7 @@ async def upload_app_package(
     app_id: int,
     file: UploadFile = File(...),
     current_user: User = Depends(require_developer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     app = (
         db.query(StoreApp)
@@ -97,7 +97,6 @@ async def upload_app_package(
             detail={"detail": "App not found", "code": "APP_NOT_FOUND"},
         )
 
-    # Validate file type
     if file.content_type not in ("application/zip", "application/x-zip-compressed") and not (
         file.filename or ""
     ).endswith(".zip"):
@@ -121,7 +120,6 @@ async def upload_app_package(
             detail={"detail": "File is not a valid ZIP", "code": "INVALID_ZIP"},
         )
 
-    # Validate manifest.json
     names = zf.namelist()
     manifest_path = None
     for n in names:
@@ -152,13 +150,11 @@ async def upload_app_package(
             },
         )
 
-    # Persist package
     pkg_dir = PACKAGES_DIR / str(app_id)
     pkg_dir.mkdir(parents=True, exist_ok=True)
     zip_path = pkg_dir / "app.zip"
     zip_path.write_bytes(content)
 
-    # Extract icon
     icon_url: str | None = None
     icon_name = manifest.get("icon")
     if icon_name and icon_name in names:
@@ -167,13 +163,11 @@ async def upload_app_package(
         icon_bytes = zf.read(icon_name)
         dest = icon_dir / Path(icon_name).name
         dest.write_bytes(icon_bytes)
-        icon_url = f"store/icons/{app_id}/{Path(icon_name).name}"
+        icon_url = f"/store/icons/{app_id}/{Path(icon_name).name}"
 
-    # Update app record
     app.package_path = str(zip_path)
     if icon_url:
         app.icon_path = icon_url
-    # Update version from manifest if present
     if "version" in manifest:
         app.version = str(manifest["version"])
 
@@ -187,7 +181,7 @@ async def update_app(
     app_id: int,
     body: StoreAppUpdate,
     current_user: User = Depends(require_developer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     app = (
         db.query(StoreApp)
@@ -213,7 +207,7 @@ async def update_app(
 async def delete_app(
     app_id: int,
     current_user: User = Depends(require_developer),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     app = (
         db.query(StoreApp)
@@ -226,7 +220,6 @@ async def delete_app(
             detail={"detail": "App not found", "code": "APP_NOT_FOUND"},
         )
 
-    # Clean up files
     pkg_dir = PACKAGES_DIR / str(app_id)
     if pkg_dir.exists():
         shutil.rmtree(pkg_dir)

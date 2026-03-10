@@ -11,8 +11,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import User
+from database import get_platform_db
+from models_platform import User
 
 # ---------------------------------------------------------------------------
 # Config
@@ -80,7 +80,7 @@ def verify_token(token: str) -> dict:
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ) -> User:
     payload = verify_token(token)
     if payload.get("type") != "access":

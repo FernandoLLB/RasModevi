@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from auth import require_admin
-from database import get_db
-from models import StoreApp, User
+from database import get_platform_db
+from models_platform import StoreApp, User
 from schemas import RejectAppBody, StoreAppOut
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 @router.get("/apps", response_model=List[StoreAppOut])
 async def list_all_apps(
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     return (
         db.query(StoreApp)
@@ -31,7 +31,7 @@ async def list_all_apps(
 async def approve_app(
     app_id: int,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     app = (
         db.query(StoreApp)
@@ -56,7 +56,7 @@ async def reject_app(
     app_id: int,
     body: RejectAppBody,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_platform_db),
 ):
     app = (
         db.query(StoreApp)

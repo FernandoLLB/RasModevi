@@ -1,16 +1,9 @@
 """Seed the database with initial platform and device data."""
 import bcrypt
 
-from database import SessionLocal, init_db
-from models import (
-    User,
-    Category,
-    HardwareTag,
-    StoreApp,
-    InstalledApp,
-    ActivityLog,
-    DeviceSetting,
-)
+from database import PlatformSession, DeviceSession, init_db
+from models_platform import User, Category, HardwareTag, StoreApp
+from models_device import InstalledApp, ActivityLog, DeviceSetting
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +16,7 @@ def _hash(password: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Seed data definitions
+# Seed data
 # ---------------------------------------------------------------------------
 
 CATEGORIES = [
@@ -49,7 +42,6 @@ HARDWARE_TAGS = [
     {"name": "NeoPixel", "slug": "neopixel", "interface": "gpio",  "description": "WS2812B addressable RGB LED strip"},
 ]
 
-# (slug, name, description, category_slug, icon_path, permissions, long_description)
 DEMO_APPS = [
     {
         "slug": "clock",
@@ -110,21 +102,9 @@ DEMO_APPS = [
 ]
 
 DEVICE_SETTINGS = [
-    {
-        "key": "display_brightness",
-        "value": "80",
-        "description": "Pantalla: nivel de brillo (0-100)",
-    },
-    {
-        "key": "timezone",
-        "value": "Europe/Madrid",
-        "description": "Zona horaria del dispositivo",
-    },
-    {
-        "key": "kiosk_url",
-        "value": "http://localhost:8000",
-        "description": "URL que abre Chromium en modo kiosk al arrancar",
-    },
+    {"key": "display_brightness", "value": "80",               "description": "Pantalla: nivel de brillo (0-100)"},
+    {"key": "timezone",           "value": "Europe/Madrid",    "description": "Zona horaria del dispositivo"},
+    {"key": "kiosk_url",          "value": "http://localhost:8000", "description": "URL que abre Chromium en modo kiosk al arrancar"},
 ]
 
 
@@ -135,11 +115,12 @@ DEVICE_SETTINGS = [
 
 def seed():
     init_db()
-    db = SessionLocal()
+    platform_db = PlatformSession()
+    device_db = DeviceSession()
 
     try:
-        # ---- Users ----------------------------------------------------------
-        admin = db.query(User).filter(User.username == "admin").first()
+        # ---- Users (platform) -----------------------------------------------
+        admin = platform_db.query(User).filter(User.username == "admin").first()
         if not admin:
             admin = User(
                 username="admin",
@@ -148,9 +129,9 @@ def seed():
                 role="admin",
                 bio="Platform administrator",
             )
-            db.add(admin)
+            platform_db.add(admin)
 
-        devuser = db.query(User).filter(User.username == "devuser").first()
+        devuser = platform_db.query(User).filter(User.username == "devuser").first()
         if not devuser:
             devuser = User(
                 username="devuser",
@@ -160,31 +141,30 @@ def seed():
                 bio="ModevI built-in developer account",
                 website="https://modevi.local",
             )
-            db.add(devuser)
+            platform_db.add(devuser)
 
-        db.flush()  # get IDs before referencing them
+        platform_db.flush()
 
-        # ---- Categories -----------------------------------------------------
+        # ---- Categories (platform) ------------------------------------------
         cat_map: dict[str, Category] = {}
         for cat_data in CATEGORIES:
-            cat = db.query(Category).filter(Category.slug == cat_data["slug"]).first()
+            cat = platform_db.query(Category).filter(Category.slug == cat_data["slug"]).first()
             if not cat:
                 cat = Category(**cat_data)
-                db.add(cat)
-                db.flush()
+                platform_db.add(cat)
+                platform_db.flush()
             cat_map[cat.slug] = cat
 
-        # ---- Hardware tags --------------------------------------------------
+        # ---- Hardware tags (platform) ----------------------------------------
         for ht_data in HARDWARE_TAGS:
-            exists = db.query(HardwareTag).filter(HardwareTag.slug == ht_data["slug"]).first()
-            if not exists:
-                db.add(HardwareTag(**ht_data))
+            if not platform_db.query(HardwareTag).filter(HardwareTag.slug == ht_data["slug"]).first():
+                platform_db.add(HardwareTag(**ht_data))
 
-        db.flush()
+        platform_db.flush()
 
-        # ---- Store apps (4 demo apps) ----------------------------------------
+        # ---- Demo store apps (platform) + auto-install (device) -------------
         for app_data in DEMO_APPS:
-            existing = db.query(StoreApp).filter(StoreApp.slug == app_data["slug"]).first()
+            existing = platform_db.query(StoreApp).filter(StoreApp.slug == app_data["slug"]).first()
             if not existing:
                 category = cat_map.get(app_data["category_slug"])
                 store_app = StoreApp(
@@ -200,42 +180,46 @@ def seed():
                     version=app_data["version"],
                     status="published",
                 )
-                db.add(store_app)
-                db.flush()
+                platform_db.add(store_app)
+                platform_db.flush()
 
-                # Auto-install the demo apps on the device
-                installed = InstalledApp(
-                    store_app_id=store_app.id,
-                    is_active=False,
-                    install_path=f"apps/{app_data['slug']}",
-                )
-                db.add(installed)
-                db.flush()
+                # Auto-install on device DB
+                already_installed = device_db.query(InstalledApp).filter(
+                    InstalledApp.store_app_id == store_app.id
+                ).first()
+                if not already_installed:
+                    installed = InstalledApp(
+                        store_app_id=store_app.id,
+                        is_active=False,
+                        install_path=f"apps/{app_data['slug']}",
+                    )
+                    device_db.add(installed)
+                    device_db.flush()
 
-                db.add(
-                    ActivityLog(
+                    device_db.add(ActivityLog(
                         installed_app_id=installed.id,
                         action="install",
                         details=f"Demo app '{app_data['name']}' seeded on first boot",
-                    )
-                )
+                    ))
 
-        # ---- Device settings ------------------------------------------------
+        # ---- Device settings (device) ----------------------------------------
         for setting_data in DEVICE_SETTINGS:
-            exists = db.query(DeviceSetting).filter(
+            if not device_db.query(DeviceSetting).filter(
                 DeviceSetting.key == setting_data["key"]
-            ).first()
-            if not exists:
-                db.add(DeviceSetting(**setting_data))
+            ).first():
+                device_db.add(DeviceSetting(**setting_data))
 
-        db.commit()
+        platform_db.commit()
+        device_db.commit()
         print("Database seeded successfully.")
 
     except Exception:
-        db.rollback()
+        platform_db.rollback()
+        device_db.rollback()
         raise
     finally:
-        db.close()
+        platform_db.close()
+        device_db.close()
 
 
 if __name__ == "__main__":

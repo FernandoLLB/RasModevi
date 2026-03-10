@@ -10,12 +10,11 @@ import psutil
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import AppData, InstalledApp, RegisteredSensor
+from database import get_device_db
+from models_device import AppData, InstalledApp, RegisteredSensor
 from modevi_sdk import MODEVI_SDK_JS
 from schemas import AppDataOut, AppDataSet, GPIOReadOut, GPIOWriteIn, SensorOut, SystemInfo
 
-# GPIO availability
 try:
     from gpiozero import LED, Button  # type: ignore
 
@@ -54,8 +53,7 @@ async def sdk_system_info():
 
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
-    boot_time = psutil.boot_time()
-    uptime = int(time.time() - boot_time)
+    uptime = int(time.time() - psutil.boot_time())
 
     return SystemInfo(
         hostname=platform.node(),
@@ -89,18 +87,14 @@ def _get_installed(installed_app_id: int, db: Session) -> InstalledApp:
 
 
 @router.get("/app/{installed_app_id}/data", response_model=List[AppDataOut])
-async def get_app_data(installed_app_id: int, db: Session = Depends(get_db)):
+async def get_app_data(installed_app_id: int, db: Session = Depends(get_device_db)):
     _get_installed(installed_app_id, db)
-    return (
-        db.query(AppData)
-        .filter(AppData.installed_app_id == installed_app_id)
-        .all()
-    )
+    return db.query(AppData).filter(AppData.installed_app_id == installed_app_id).all()
 
 
 @router.get("/app/{installed_app_id}/data/{key}", response_model=AppDataOut)
 async def get_app_data_key(
-    installed_app_id: int, key: str, db: Session = Depends(get_db)
+    installed_app_id: int, key: str, db: Session = Depends(get_device_db)
 ):
     _get_installed(installed_app_id, db)
     entry = (
@@ -121,7 +115,7 @@ async def set_app_data_key(
     installed_app_id: int,
     key: str,
     body: AppDataSet,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_device_db),
 ):
     _get_installed(installed_app_id, db)
     entry = (
@@ -147,7 +141,7 @@ async def set_app_data_key(
 
 @router.delete("/app/{installed_app_id}/data/{key}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_app_data_key(
-    installed_app_id: int, key: str, db: Session = Depends(get_db)
+    installed_app_id: int, key: str, db: Session = Depends(get_device_db)
 ):
     _get_installed(installed_app_id, db)
     entry = (
@@ -170,14 +164,13 @@ async def delete_app_data_key(
 
 
 @router.get("/hardware/sensors", response_model=List[SensorOut])
-async def sdk_list_sensors(db: Session = Depends(get_db)):
+async def sdk_list_sensors(db: Session = Depends(get_device_db)):
     return db.query(RegisteredSensor).filter(RegisteredSensor.is_active == True).all()
 
 
 @router.get("/hardware/gpio/{pin}", response_model=GPIOReadOut)
 async def sdk_gpio_read(pin: int):
     if not GPIOZERO_AVAILABLE:
-        # Return mock value on non-Pi
         return GPIOReadOut(pin=pin, value=0)
     try:
         btn = Button(pin)

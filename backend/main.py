@@ -8,6 +8,13 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+# Load .env before anything else touches os.getenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+except ImportError:
+    pass
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse

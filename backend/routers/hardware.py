@@ -8,8 +8,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import RegisteredSensor
+from database import get_device_db
+from models_device import RegisteredSensor
 from schemas import GPIOReadOut, GPIOWriteIn, SensorOut, SensorRegister, SensorUpdate
 
 try:
@@ -28,12 +28,12 @@ router = APIRouter(prefix="/api/hardware", tags=["hardware"])
 
 
 @router.get("/sensors", response_model=List[SensorOut])
-async def list_sensors(db: Session = Depends(get_db)):
+async def list_sensors(db: Session = Depends(get_device_db)):
     return db.query(RegisteredSensor).order_by(RegisteredSensor.name).all()
 
 
 @router.post("/sensors", response_model=SensorOut, status_code=status.HTTP_201_CREATED)
-async def register_sensor(body: SensorRegister, db: Session = Depends(get_db)):
+async def register_sensor(body: SensorRegister, db: Session = Depends(get_device_db)):
     sensor = RegisteredSensor(
         name=body.name,
         sensor_type=body.sensor_type,
@@ -50,7 +50,7 @@ async def register_sensor(body: SensorRegister, db: Session = Depends(get_db)):
 
 @router.put("/sensors/{sensor_id}", response_model=SensorOut)
 async def update_sensor(
-    sensor_id: int, body: SensorUpdate, db: Session = Depends(get_db)
+    sensor_id: int, body: SensorUpdate, db: Session = Depends(get_device_db)
 ):
     sensor = db.query(RegisteredSensor).filter(RegisteredSensor.id == sensor_id).first()
     if not sensor:
@@ -66,7 +66,7 @@ async def update_sensor(
 
 
 @router.delete("/sensors/{sensor_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_sensor(sensor_id: int, db: Session = Depends(get_db)):
+async def delete_sensor(sensor_id: int, db: Session = Depends(get_device_db)):
     sensor = db.query(RegisteredSensor).filter(RegisteredSensor.id == sensor_id).first()
     if not sensor:
         raise HTTPException(
@@ -123,7 +123,6 @@ async def gpio_write(pin: int, body: GPIOWriteIn):
 @router.websocket("/sensors/{sensor_id}/stream")
 async def sensor_stream(sensor_id: int, websocket: WebSocket):
     await websocket.accept()
-    # Send a mock reading every second
     try:
         while True:
             data = {
@@ -138,9 +137,7 @@ async def sensor_stream(sensor_id: int, websocket: WebSocket):
 
 
 def _mock_sensor_value(sensor_id: int) -> float:
-    """Return a plausible mock sensor reading for non-Pi environments."""
     import math
 
     t = time.time()
-    # Oscillate around a base value to simulate a sensor reading
     return round(20.0 + 5.0 * math.sin(t / 10.0 + sensor_id), 2)
