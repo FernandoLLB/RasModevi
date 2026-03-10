@@ -102,8 +102,7 @@ async def _stream(
     try:
         async with client.messages.stream(
             model="claude-opus-4-6",
-            max_tokens=8192,
-            thinking={"type": "adaptive"},
+            max_tokens=32000,
             system=SYSTEM_PROMPT,
             messages=[
                 {
@@ -136,6 +135,15 @@ async def _stream(
         yield evt({
             "type": "error",
             "message": "La IA no devolvió un HTML válido. Prueba con una descripción más detallada.",
+        })
+        return
+
+    # Validate HTML is complete (not truncated mid-generation)
+    stripped = html_code.strip().upper()
+    if not stripped.endswith("</HTML>"):
+        yield evt({
+            "type": "error",
+            "message": "El código generado quedó incompleto (truncado). Inténtalo de nuevo con una descripción más simple.",
         })
         return
 
