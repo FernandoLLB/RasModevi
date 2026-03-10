@@ -1,0 +1,8 @@
+{
+  "name": "Comecocos",
+  "version": "1.0.0",
+  "description": "Crea el juego de comecocos de manera muy sencilla\n",
+  "entry_point": "index.html",
+  "required_hardware": [],
+  "permissions": []
+}
