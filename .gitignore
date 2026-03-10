@@ -5,3 +5,7 @@ node_modules/
 dist/
 .env
 *.log
+
+# App packages and installed files (device-local, not for git)
+backend/installed/*/
+backend/store/packages/*/
