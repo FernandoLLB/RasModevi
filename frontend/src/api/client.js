@@ -69,4 +69,4 @@ export const api = {
 }
 
 // Export bases for use in components
-export { STORE_BASE, DEVICE_BASE }
+export { STORE_BASE, DEVICE_BASE, refreshTokens }

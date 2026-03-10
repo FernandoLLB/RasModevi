@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import DeviceLayout from '../components/layout/DeviceLayout'
 import { storeApi } from '../api/store'
-import { STORE_BASE } from '../api/client'
+import { STORE_BASE, refreshTokens } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
 const STEPS = [
@@ -39,12 +39,20 @@ export default function AICreatePage() {
     if (codeRef.current) codeRef.current.scrollTop = codeRef.current.scrollHeight
   }, [codeText])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim() || !form.description.trim()) return
 
-    const token = localStorage.getItem('access_token')
+    let token = localStorage.getItem('access_token')
     if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
+
+    // Refresh the token before opening EventSource — EventSource can't auto-refresh on 401
+    try {
+      token = await refreshTokens()
+    } catch {
+      // If refresh fails, try with the existing token (it may still be valid)
+      token = localStorage.getItem('access_token')
+    }
 
     setPhase('streaming')
     setCurrentStep('connecting')
