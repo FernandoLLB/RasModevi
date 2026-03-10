@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, X } from 'lucide-react'
 import { deviceApi } from '../api/device'
+import { DEVICE_BASE } from '../api/client'
 import { useDevice } from '../context/DeviceContext'
 
 export default function AppRunnerPage() {
@@ -49,8 +50,8 @@ export default function AppRunnerPage() {
 
   const isDemoApp = app.install_path?.startsWith('apps/')
   const appUrl = isDemoApp
-    ? `/apps/${app.store_app?.slug}/`
-    : `/installed/${app_id}/`
+    ? `${DEVICE_BASE}/apps/${app.store_app?.slug}/`
+    : `${DEVICE_BASE}/installed/${app_id}/`
 
   return (
     <div className="fixed inset-0 bg-black z-50" onMouseMove={handleMouseMove} onTouchStart={() => setShowBack(true)}>
@@ -65,7 +66,7 @@ export default function AppRunnerPage() {
 
       {/* SDK injection script tag */}
       <script
-        src={`/api/sdk/app/${app_id}/sdk.js`}
+        src={`${DEVICE_BASE}/api/sdk/app/${app_id}/sdk.js`}
         onLoad={() => console.log('ModevI SDK loaded')}
       />
 

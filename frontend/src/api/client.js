@@ -68,5 +68,5 @@ export const api = {
   delete: (path) => apiFetch(path, { method: 'DELETE' }),
 }
 
-// Export STORE_BASE for use in EventSource (AI streaming)
-export { STORE_BASE }
+// Export bases for use in components
+export { STORE_BASE, DEVICE_BASE }
