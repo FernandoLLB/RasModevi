@@ -14,19 +14,19 @@ export default function HardwareFilterBar({ tags, selected, onSelect }) {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-200 transition-colors mb-2 cursor-pointer"
+        className="flex items-center gap-2 px-1 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors mb-1 cursor-pointer"
       >
-        <Cpu size={13} />
+        <Cpu size={15} />
         Filtrar por hardware
-        {selected && <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs">{selected}</span>}
-        {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        {selected && <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-medium">{selected}</span>}
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
 
       {open && (
         <div className="flex flex-wrap gap-2 mb-4 animate-fade-in">
           <button
             onClick={() => onSelect('')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
               !selected ? 'bg-white/10 text-white' : 'bg-white/[0.04] text-slate-400 hover:bg-white/[0.07]'
             }`}
           >
@@ -39,7 +39,7 @@ export default function HardwareFilterBar({ tags, selected, onSelect }) {
               <button
                 key={tag.slug}
                 onClick={() => onSelect(isActive ? '' : tag.slug)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${
                   isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'
                 }`}
                 style={{
@@ -47,7 +47,7 @@ export default function HardwareFilterBar({ tags, selected, onSelect }) {
                   borderColor: isActive ? color + '50' : 'transparent',
                 }}
               >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
                 {tag.name}
               </button>
             )

@@ -80,13 +80,13 @@ export default function LauncherAppIcon({ app }) {
         {showDelete && (
           <button
             onClick={handleUninstall}
-            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-600 transition-colors z-10"
+            className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-600 transition-colors z-10 shadow-lg shadow-red-500/40"
           >
-            <X size={12} />
+            <X size={14} />
           </button>
         )}
       </button>
-      <span className="text-xs text-slate-300 font-medium text-center leading-tight max-w-[80px] line-clamp-1">
+      <span className="text-xs text-slate-300 font-medium text-center leading-tight max-w-[88px] line-clamp-2">
         {app.store_app?.name || 'App'}
       </span>
     </div>

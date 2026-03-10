@@ -27,27 +27,27 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         <div className="flex items-center bg-white/[0.04] rounded-xl p-1 gap-0.5">
           <Link
             to="/"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
               isStore
                 ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25'
                 : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
             }`}
           >
-            <Store size={14} />
+            <Store size={15} />
             <span>Tienda</span>
           </Link>
           <Link
             to="/launcher"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all relative ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all relative ${
               isLauncher
                 ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/25'
                 : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
             }`}
           >
-            <LayoutGrid size={14} />
+            <LayoutGrid size={15} />
             <span>Mis Apps</span>
             {installedApps.length > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
                 isLauncher ? 'bg-white/20 text-white' : 'bg-violet-500/20 text-violet-400'
               }`}>
                 {installedApps.length}
@@ -75,7 +75,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
               value={searchValue}
               onChange={e => onSearch(e.target.value)}
               placeholder="Buscar apps..."
-              className="w-full bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.06] transition-all"
+              className="w-full bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.06] transition-all"
             />
           </div>
         )}
@@ -94,22 +94,22 @@ export default function TopBar({ onSearch, searchValue = '' }) {
             <>
               <Link
                 to="/ai/create"
-                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isAI
                     ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
                     : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
                 title="Crear app con IA"
               >
-                <Sparkles size={14} />
+                <Sparkles size={15} />
                 <span>Crear con IA</span>
               </Link>
               <Link
                 to="/developer"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
                 title="Portal Developer"
               >
-                <Code2 size={14} />
+                <Code2 size={15} />
                 <span>Developer</span>
               </Link>
             </>
@@ -117,23 +117,23 @@ export default function TopBar({ onSearch, searchValue = '' }) {
 
           {isAuthenticated ? (
             <div className="flex items-center gap-1">
-              <Link to="/settings" className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] transition-colors">
-                <div className="w-6 h-6 rounded-full bg-indigo-500/30 flex items-center justify-center text-indigo-300 text-xs font-bold">
+              <Link to="/settings" className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/[0.06] transition-colors">
+                <div className="w-7 h-7 rounded-full bg-indigo-500/30 flex items-center justify-center text-indigo-300 text-sm font-bold shrink-0">
                   {user.username[0].toUpperCase()}
                 </div>
                 <span className="text-sm text-slate-300 hidden sm:block">{user.username}</span>
               </Link>
               <button
                 onClick={logout}
-                className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="p-2.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                 title="Cerrar sesión"
               >
-                <LogOut size={15} />
+                <LogOut size={16} />
               </button>
             </div>
           ) : (
-            <Link to="/login" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/15 transition-colors">
-              <LogIn size={15} />
+            <Link to="/login" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/15 transition-colors">
+              <LogIn size={16} />
               <span className="hidden sm:block">Entrar</span>
             </Link>
           )}

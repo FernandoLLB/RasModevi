@@ -280,13 +280,13 @@ export default function AICreatePage() {
                 <div className="flex gap-2 flex-wrap">
                   <Link
                     to={`/app/${resultApp.slug}`}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-medium hover:bg-emerald-500/30 transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-medium hover:bg-emerald-500/30 transition-colors"
                   >
-                    Ver en tienda <ChevronRight size={12} />
+                    Ver en tienda <ChevronRight size={14} />
                   </Link>
                   <Link
                     to="/developer"
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-slate-400 text-xs font-medium hover:text-white hover:bg-white/[0.06] transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-400 text-sm font-medium hover:text-white hover:bg-white/[0.06] transition-colors"
                   >
                     Panel developer
                   </Link>

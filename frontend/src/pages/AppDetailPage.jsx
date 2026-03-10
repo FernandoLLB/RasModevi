@@ -45,7 +45,7 @@ export default function AppDetailPage() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 mb-6 transition-colors cursor-pointer"
+          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-slate-200 hover:bg-white/[0.05] mb-6 transition-colors cursor-pointer"
           style={{ background: 'none', border: 'none' }}
         >
           <ArrowLeft size={16} /> Volver

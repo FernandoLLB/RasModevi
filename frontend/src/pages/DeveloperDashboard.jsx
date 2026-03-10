@@ -60,7 +60,7 @@ export default function DeveloperDashboard() {
           </div>
           <Link
             to="/developer/upload"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-sm font-semibold transition-colors"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-sm font-semibold transition-colors shadow-lg shadow-indigo-500/20"
           >
             <Plus size={16} /> Nueva app
           </Link>

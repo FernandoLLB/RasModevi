@@ -51,7 +51,7 @@ export default function StorePage() {
           <select
             value={sort}
             onChange={e => setSort(e.target.value)}
-            className="bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none appearance-none cursor-pointer"
+            className="bg-white/[0.04] border border-white/[0.07] rounded-lg px-4 py-2.5 text-sm text-slate-300 focus:outline-none appearance-none cursor-pointer"
           >
             <option value="downloads" style={{ background: '#1a1a2e' }}>Más descargadas</option>
             <option value="rating" style={{ background: '#1a1a2e' }}>Mejor valoradas</option>

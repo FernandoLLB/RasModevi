@@ -45,14 +45,14 @@ export default function AppCard({ app, index = 0 }) {
             <h3 className="font-semibold text-sm leading-tight line-clamp-1">{app.name}</h3>
           </Link>
           <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{app.developer?.username || 'Community'}</p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1.5">
             <div className="flex items-center gap-1">
-              <Star size={11} className="text-amber-400" fill="currentColor" />
+              <Star size={12} className="text-amber-400" fill="currentColor" />
               <span className="text-xs mono text-slate-400">{app.avg_rating?.toFixed(1) || '—'}</span>
             </div>
             <span className="text-slate-700">·</span>
             <div className="flex items-center gap-1 text-slate-500 text-xs">
-              <Download size={11} />
+              <Download size={12} />
               <span className="mono">{app.downloads_count || 0}</span>
             </div>
           </div>
@@ -71,8 +71,8 @@ export default function AppCard({ app, index = 0 }) {
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between mt-auto pt-1">
-        <span className="text-[10px] text-slate-600 font-medium">{app.category?.name || app.category}</span>
+      <div className="flex items-center justify-between mt-auto pt-2">
+        <span className="text-xs text-slate-600 font-medium">{app.category?.name || app.category}</span>
         <InstallButton storeApp={app} size="sm" />
       </div>
     </div>

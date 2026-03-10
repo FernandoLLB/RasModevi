@@ -86,7 +86,7 @@ export default function RatingsSection({ app, ratings, onRatingAdded }) {
           <button
             onClick={submit}
             disabled={!myRating || submitting}
-            className="mt-3 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-sm font-medium transition-colors cursor-pointer"
+            className="mt-3 px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-sm font-semibold transition-colors cursor-pointer"
           >
             {submitting ? 'Enviando...' : 'Enviar valoración'}
           </button>
@@ -98,7 +98,7 @@ export default function RatingsSection({ app, ratings, onRatingAdded }) {
           <div key={r.id} className="card p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 text-xs font-bold">
+                <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 text-xs font-bold shrink-0">
                   {r.user?.username?.[0]?.toUpperCase() || '?'}
                 </div>
                 <span className="text-sm font-medium">{r.user?.username || 'Usuario'}</span>

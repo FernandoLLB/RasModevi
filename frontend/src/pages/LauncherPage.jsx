@@ -53,14 +53,14 @@ export default function LauncherPage() {
 
       {/* Dock */}
       <div className="flex items-center justify-center gap-4 pb-6 px-4">
-        <div className="flex items-center gap-2 glass rounded-2xl px-4 py-2.5">
-          <Link to="/" className="flex flex-col items-center gap-1 px-3 py-1 rounded-xl hover:bg-white/[0.06] transition-colors">
-            <Store size={20} className="text-slate-300" />
-            <span className="text-[10px] text-slate-400">Tienda</span>
+        <div className="flex items-center gap-2 glass rounded-2xl px-4 py-3">
+          <Link to="/" className="flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl hover:bg-white/[0.06] transition-colors min-w-[64px]">
+            <Store size={22} className="text-slate-300" />
+            <span className="text-xs text-slate-400">Tienda</span>
           </Link>
-          <Link to="/settings" className="flex flex-col items-center gap-1 px-3 py-1 rounded-xl hover:bg-white/[0.06] transition-colors">
-            <Settings size={20} className="text-slate-300" />
-            <span className="text-[10px] text-slate-400">Ajustes</span>
+          <Link to="/settings" className="flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl hover:bg-white/[0.06] transition-colors min-w-[64px]">
+            <Settings size={22} className="text-slate-300" />
+            <span className="text-xs text-slate-400">Ajustes</span>
           </Link>
         </div>
       </div>

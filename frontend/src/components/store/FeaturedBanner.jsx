@@ -40,7 +40,7 @@ export default function FeaturedBanner({ app }) {
           <InstallButton storeApp={app} size="md" />
           <Link
             to={`/app/${app.slug}`}
-            className="flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] transition-colors"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] transition-colors"
           >
             Ver más <ArrowRight size={14} />
           </Link>

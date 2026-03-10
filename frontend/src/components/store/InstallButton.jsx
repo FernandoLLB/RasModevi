@@ -9,13 +9,13 @@ export default function InstallButton({ storeApp, size = 'sm' }) {
   const isInstalling = installingIds.has(storeApp.id)
 
   const cls = size === 'sm'
-    ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap'
-    : 'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap'
+    ? 'flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap'
+    : 'flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap'
 
   if (isInstalling) {
     return (
       <button disabled className={`${cls} bg-white/[0.06] text-slate-400`}>
-        <Loader2 size={size === 'sm' ? 12 : 16} className="animate-spin" />
+        <Loader2 size={size === 'sm' ? 14 : 16} className="animate-spin" />
         Instalando...
       </button>
     )
@@ -27,7 +27,7 @@ export default function InstallButton({ storeApp, size = 'sm' }) {
         onClick={() => install(storeApp.id)}
         className={`${cls} bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/20`}
       >
-        <Download size={size === 'sm' ? 12 : 16} />
+        <Download size={size === 'sm' ? 14 : 16} />
         Instalar
       </button>
     )
@@ -50,7 +50,7 @@ export default function InstallButton({ storeApp, size = 'sm' }) {
       {installed.is_active && (
         <span className="w-1.5 h-1.5 bg-white/80 rounded-full animate-pulse" />
       )}
-      <Play size={size === 'sm' ? 12 : 16} fill="currentColor" />
+      <Play size={size === 'sm' ? 14 : 16} fill="currentColor" />
       Abrir
     </button>
   )

@@ -16,8 +16,8 @@ function SensorRow({ sensor, onDelete }) {
         <p className="text-xs text-slate-500">{sensor.sensor_type} · {sensor.interface} · pin {sensor.pin_or_address}</p>
       </div>
       <div className={`w-2 h-2 rounded-full ${sensor.is_active ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-      <button onClick={() => onDelete(sensor.id)} className="p-2 text-slate-500 hover:text-red-400 transition-colors cursor-pointer" style={{ background: 'none', border: 'none' }}>
-        <Trash2 size={14} />
+      <button onClick={() => onDelete(sensor.id)} className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer" style={{ background: 'none', border: 'none' }}>
+        <Trash2 size={16} />
       </button>
     </div>
   )
@@ -57,7 +57,7 @@ export default function SettingsPage() {
               { label: 'RAM', value: sysInfo ? `${sysInfo.ram_used?.toFixed(1)} / ${sysInfo.ram_total?.toFixed(1)} GB` : '—' },
               { label: 'Temperatura', value: sysInfo?.temperature ? `${sysInfo.temperature.toFixed(1)}°C` : '—' },
             ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between px-4 py-3">
+              <div key={label} className="flex items-center justify-between px-4 py-3.5">
                 <span className="text-sm text-slate-400">{label}</span>
                 <span className="text-sm mono text-slate-200">{value}</span>
               </div>
@@ -71,10 +71,10 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Sensores registrados</h2>
             <button
               onClick={() => {/* TODO: open sensor register modal */}}
-              className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors cursor-pointer"
               style={{ background: 'none', border: 'none' }}
             >
-              <Plus size={13} /> Añadir sensor
+              <Plus size={15} /> Añadir sensor
             </button>
           </div>
 
@@ -103,7 +103,7 @@ export default function SettingsPage() {
               <button
                 key={path}
                 onClick={() => navigate(path)}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.04] transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between px-4 py-4 hover:bg-white/[0.04] transition-colors cursor-pointer"
                 style={{ background: 'none', border: 'none', textAlign: 'left' }}
               >
                 <span className="text-sm text-slate-300">{label}</span>
