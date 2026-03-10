@@ -1,0 +1,13 @@
+{
+  "feature": "ModevI — Plataforma Modular para Raspberry Pi 5",
+  "status": "in_progress",
+  "stack": "FastAPI + React + SQLite + TailwindCSS + React Router + JWT",
+  "api_style": "rest+websocket",
+  "complexity": "complex",
+  "current_step": 7,
+  "current_phase": 2,
+  "completed_steps": [1, 2, 3, 4, 5, 6],
+  "files_created": ["01-requirements.md", "02-database-design.md", "03-architecture.md", "04-database-impl.md", "05-backend-impl.md", "06-frontend-impl.md"],
+  "started_at": "2026-03-10T00:00:00Z",
+  "last_updated": "2026-03-10T00:06:00Z"
+}

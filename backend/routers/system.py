@@ -1,27 +1,33 @@
+"""System router — device info and recent activity stats."""
+from __future__ import annotations
+
+import platform
+import time
+
+import psutil
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+
 from database import get_db
-from models import App, ActivityLog
-import psutil
-import platform
-import os
+from models import ActivityLog, InstalledApp
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
 
 @router.get("/info")
-def system_info():
-    temps = psutil.sensors_temperatures()
+async def system_info():
+    temps = psutil.sensors_temperatures() if hasattr(psutil, "sensors_temperatures") else {}
     cpu_temp = None
     if temps:
-        for name, entries in temps.items():
+        for _, entries in temps.items():
             if entries:
                 cpu_temp = entries[0].current
                 break
 
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
+    boot_time = psutil.boot_time()
+    uptime = int(time.time() - boot_time)
 
     return {
         "hostname": platform.node(),
@@ -38,15 +44,14 @@ def system_info():
         "disk_used": disk.used,
         "disk_percent": disk.percent,
         "cpu_temp": cpu_temp,
-        "uptime": int(psutil.boot_time()),
+        "uptime_seconds": uptime,
     }
 
 
 @router.get("/stats")
-def app_stats(db: Session = Depends(get_db)):
-    total_apps = db.query(App).count()
-    installed_apps = db.query(App).filter(App.installed == True).count()
-    active_app = db.query(App).filter(App.active == True).first()
+async def app_stats(db: Session = Depends(get_db)):
+    total_installed = db.query(InstalledApp).count()
+    active_app = db.query(InstalledApp).filter(InstalledApp.is_active == True).first()
     recent_activity = (
         db.query(ActivityLog)
         .order_by(ActivityLog.timestamp.desc())
@@ -55,14 +60,15 @@ def app_stats(db: Session = Depends(get_db)):
     )
 
     return {
-        "total_apps": total_apps,
-        "installed_apps": installed_apps,
-        "active_app": active_app.name if active_app else None,
+        "total_installed": total_installed,
+        "active_app_id": active_app.id if active_app else None,
         "recent_activity": [
             {
-                "app_id": a.app_id,
+                "id": a.id,
+                "installed_app_id": a.installed_app_id,
                 "action": a.action,
                 "timestamp": a.timestamp.isoformat() if a.timestamp else None,
+                "details": a.details,
             }
             for a in recent_activity
         ],
