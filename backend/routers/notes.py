@@ -20,7 +20,7 @@ class NoteUpdate(BaseModel):
     pinned: bool | None = None
 
 
-@router.get("/")
+@router.get("")
 def list_notes(db: Session = Depends(get_device_db)):
     notes = db.query(Note).order_by(Note.pinned.desc(), Note.updated_at.desc()).all()
     return [
@@ -37,7 +37,7 @@ def list_notes(db: Session = Depends(get_device_db)):
     ]
 
 
-@router.post("/")
+@router.post("")
 def create_note(note: NoteCreate, db: Session = Depends(get_device_db)):
     new_note = Note(title=note.title, content=note.content, color=note.color)
     db.add(new_note)

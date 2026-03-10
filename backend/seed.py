@@ -183,24 +183,26 @@ def seed():
                 platform_db.add(store_app)
                 platform_db.flush()
 
-                # Auto-install on device DB
-                already_installed = device_db.query(InstalledApp).filter(
-                    InstalledApp.store_app_id == store_app.id
-                ).first()
-                if not already_installed:
-                    installed = InstalledApp(
-                        store_app_id=store_app.id,
-                        is_active=False,
-                        install_path=f"apps/{app_data['slug']}",
-                    )
-                    device_db.add(installed)
-                    device_db.flush()
+                # Auto-install only default apps on device DB
+                DEFAULT_APPS = {"clock", "sysmonitor", "notes"}
+                if app_data["slug"] in DEFAULT_APPS:
+                    already_installed = device_db.query(InstalledApp).filter(
+                        InstalledApp.store_app_id == store_app.id
+                    ).first()
+                    if not already_installed:
+                        installed = InstalledApp(
+                            store_app_id=store_app.id,
+                            is_active=False,
+                            install_path=f"apps/{app_data['slug']}",
+                        )
+                        device_db.add(installed)
+                        device_db.flush()
 
-                    device_db.add(ActivityLog(
-                        installed_app_id=installed.id,
-                        action="install",
-                        details=f"Demo app '{app_data['name']}' seeded on first boot",
-                    ))
+                        device_db.add(ActivityLog(
+                            installed_app_id=installed.id,
+                            action="install",
+                            details=f"App '{app_data['name']}' preinstalada en el dispositivo",
+                        ))
 
         # ---- Device settings (device) ----------------------------------------
         for setting_data in DEVICE_SETTINGS:

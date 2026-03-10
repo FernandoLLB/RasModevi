@@ -1,22 +1,59 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { Grid3x3, LogIn, LogOut, User, Code2, Zap, ChevronRight } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { LogIn, LogOut, Code2, Zap, ChevronRight, Store, LayoutGrid } from 'lucide-react'
 import Logo from '../Logo'
 import { useAuth } from '../../context/AuthContext'
 import { useDevice } from '../../context/DeviceContext'
 
 export default function TopBar({ onSearch, searchValue = '' }) {
   const { user, isAuthenticated, isDeveloper, logout } = useAuth()
-  const { activeApp } = useDevice()
-  const navigate = useNavigate()
+  const { activeApp, installedApps } = useDevice()
+  const location = useLocation()
+
+  const isStore = location.pathname === '/' || location.pathname.startsWith('/app/')
+  const isLauncher = location.pathname === '/launcher'
 
   return (
     <header className="sticky top-0 z-50 glass border-b border-white/[0.06]">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <Logo size={30} />
+          <Logo size={28} />
           <span className="text-base font-bold tracking-tight gradient-text hidden sm:block">ModevI</span>
         </Link>
+
+        {/* Main nav tabs */}
+        <div className="flex items-center bg-white/[0.04] rounded-xl p-1 gap-0.5">
+          <Link
+            to="/"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              isStore
+                ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25'
+                : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
+            }`}
+          >
+            <Store size={14} />
+            <span>Tienda</span>
+          </Link>
+          <Link
+            to="/launcher"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all relative ${
+              isLauncher
+                ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/25'
+                : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
+            }`}
+          >
+            <LayoutGrid size={14} />
+            <span>Mis Apps</span>
+            {installedApps.length > 0 && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                isLauncher ? 'bg-white/20 text-white' : 'bg-violet-500/20 text-violet-400'
+              }`}>
+                {installedApps.length}
+              </span>
+            )}
+          </Link>
+        </div>
 
         {/* Active app indicator */}
         {activeApp && (
@@ -32,7 +69,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
 
         {/* Search */}
         {onSearch && (
-          <div className="flex-1 max-w-md">
+          <div className="flex-1 max-w-xs">
             <input
               value={searchValue}
               onChange={e => onSearch(e.target.value)}
@@ -50,21 +87,22 @@ export default function TopBar({ onSearch, searchValue = '' }) {
           <span className="mono">Pi 5</span>
         </div>
 
-        {/* Nav icons */}
+        {/* User / dev nav */}
         <nav className="flex items-center gap-1">
-          <Link to="/launcher" className="p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors" title="Launcher">
-            <Grid3x3 size={18} />
-          </Link>
-
           {isDeveloper && (
-            <Link to="/developer" className="p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors" title="Portal Developer">
-              <Code2 size={18} />
+            <Link
+              to="/developer"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+              title="Portal Developer"
+            >
+              <Code2 size={14} />
+              <span>Developer</span>
             </Link>
           )}
 
           {isAuthenticated ? (
             <div className="flex items-center gap-1">
-              <Link to="/settings" className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/[0.06] transition-colors">
+              <Link to="/settings" className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] transition-colors">
                 <div className="w-6 h-6 rounded-full bg-indigo-500/30 flex items-center justify-center text-indigo-300 text-xs font-bold">
                   {user.username[0].toUpperCase()}
                 </div>
@@ -72,14 +110,14 @@ export default function TopBar({ onSearch, searchValue = '' }) {
               </Link>
               <button
                 onClick={logout}
-                className="p-2.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                 title="Cerrar sesión"
               >
-                <LogOut size={16} />
+                <LogOut size={15} />
               </button>
             </div>
           ) : (
-            <Link to="/login" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/15 transition-colors">
+            <Link to="/login" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/15 transition-colors">
               <LogIn size={15} />
               <span className="hidden sm:block">Entrar</span>
             </Link>
