@@ -24,27 +24,27 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         </Link>
 
         {/* Main nav tabs */}
-        <div className="flex items-center bg-white/[0.04] rounded-xl p-1 gap-0.5">
+        <div className="flex items-center bg-white/[0.04] rounded-2xl p-1.5 gap-1">
           <Link
             to="/"
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all min-h-[40px] ${
               isStore
                 ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25'
                 : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
             }`}
           >
-            <Store size={15} />
+            <Store size={16} />
             <span>Tienda</span>
           </Link>
           <Link
             to="/launcher"
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all relative ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all relative min-h-[40px] ${
               isLauncher
                 ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/25'
                 : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
             }`}
           >
-            <LayoutGrid size={15} />
+            <LayoutGrid size={16} />
             <span>Mis Apps</span>
             {installedApps.length > 0 && (
               <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
@@ -60,7 +60,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         {activeApp && (
           <Link
             to={`/running/${activeApp.id}`}
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/15 transition-colors"
+            className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/15 transition-colors min-h-[40px]"
           >
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
             {activeApp.store_app?.name || 'App activa'}
@@ -89,35 +89,35 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         </div>
 
         {/* User / dev nav */}
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-2">
           {isDeveloper && (
             <>
               <Link
                 to="/ai/create"
-                className={`hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors min-h-[40px] ${
                   isAI
                     ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
                     : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
                 title="Crear app con IA"
               >
-                <Sparkles size={15} />
+                <Sparkles size={16} />
                 <span>Crear con IA</span>
               </Link>
               <Link
                 to="/developer"
-                className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors min-h-[40px]"
                 title="Portal Developer"
               >
-                <Code2 size={15} />
+                <Code2 size={16} />
                 <span>Developer</span>
               </Link>
             </>
           )}
 
           {isAuthenticated ? (
-            <div className="flex items-center gap-1">
-              <Link to="/settings" className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/[0.06] transition-colors">
+            <div className="flex items-center gap-2">
+              <Link to="/settings" className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors min-h-[40px]">
                 <div className="w-7 h-7 rounded-full bg-indigo-500/30 flex items-center justify-center text-indigo-300 text-sm font-bold shrink-0">
                   {user.username[0].toUpperCase()}
                 </div>
@@ -125,14 +125,14 @@ export default function TopBar({ onSearch, searchValue = '' }) {
               </Link>
               <button
                 onClick={logout}
-                className="p-2.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
                 title="Cerrar sesión"
               >
                 <LogOut size={16} />
               </button>
             </div>
           ) : (
-            <Link to="/login" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/15 transition-colors">
+            <Link to="/login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-indigo-300 hover:text-white hover:bg-indigo-500/15 transition-colors min-h-[40px]">
               <LogIn size={16} />
               <span className="hidden sm:block">Entrar</span>
             </Link>

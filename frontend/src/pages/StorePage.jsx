@@ -42,16 +42,16 @@ export default function StorePage() {
         )}
 
         {/* Filters */}
-        <div className="mb-4">
+        <div className="mb-5">
           <CategoryBar categories={categories} selected={category} onSelect={setCategory} />
         </div>
 
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <HardwareFilterBar tags={hardwareTags} selected={hardware} onSelect={setHardware} />
           <select
             value={sort}
             onChange={e => setSort(e.target.value)}
-            className="bg-white/[0.04] border border-white/[0.07] rounded-lg px-4 py-2.5 text-sm text-slate-300 focus:outline-none appearance-none cursor-pointer"
+            className="bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-3 text-sm text-slate-300 focus:outline-none appearance-none cursor-pointer min-h-[44px]"
           >
             <option value="downloads" style={{ background: '#1a1a2e' }}>Más descargadas</option>
             <option value="rating" style={{ background: '#1a1a2e' }}>Mejor valoradas</option>

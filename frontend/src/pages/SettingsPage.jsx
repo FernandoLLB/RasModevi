@@ -16,8 +16,8 @@ function SensorRow({ sensor, onDelete }) {
         <p className="text-xs text-slate-500">{sensor.sensor_type} · {sensor.interface} · pin {sensor.pin_or_address}</p>
       </div>
       <div className={`w-2 h-2 rounded-full ${sensor.is_active ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-      <button onClick={() => onDelete(sensor.id)} className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer" style={{ background: 'none', border: 'none' }}>
-        <Trash2 size={16} />
+      <button onClick={() => onDelete(sensor.id)} className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center">
+        <Trash2 size={18} />
       </button>
     </div>
   )
@@ -103,11 +103,11 @@ export default function SettingsPage() {
               <button
                 key={path}
                 onClick={() => navigate(path)}
-                className="w-full flex items-center justify-between px-4 py-4 hover:bg-white/[0.04] transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between px-4 py-4 hover:bg-white/[0.04] transition-colors cursor-pointer min-h-[52px]"
                 style={{ background: 'none', border: 'none', textAlign: 'left' }}
               >
-                <span className="text-sm text-slate-300">{label}</span>
-                <ChevronRight size={14} className="text-slate-600" />
+                <span className="text-sm font-medium text-slate-300">{label}</span>
+                <ChevronRight size={16} className="text-slate-500" />
               </button>
             ))}
           </div>

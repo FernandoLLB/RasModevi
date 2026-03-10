@@ -30,20 +30,20 @@ export default function MyAppRow({ app, onUpload, onDelete }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={() => onUpload(app)}
-          className="p-3 rounded-xl text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors cursor-pointer"
+          className="p-3 rounded-xl text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
           title="Subir paquete"
         >
-          <Upload size={16} />
+          <Upload size={18} />
         </button>
         <button
           onClick={() => onDelete(app)}
-          className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+          className="p-3 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
           title="Eliminar"
         >
-          <Trash2 size={16} />
+          <Trash2 size={18} />
         </button>
       </div>
     </div>
