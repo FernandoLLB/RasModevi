@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pomodoro</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #09090f;
+    color: #e2e8f0;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    user-select: none; -webkit-user-select: none;
+    gap: clamp(6px,1.5vh,16px);
+  }
+
+  /* Mode title */
+  #mode-title {
+    font-size: clamp(11px, 1.4vw, 16px);
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    transition: color 0.8s ease;
+    opacity: 0.7;
+  }
+
+  /* Ring SVG */
+  #ring-wrapper {
+    position: relative;
+    flex-shrink: 0;
+  }
+  #ring-svg { overflow: visible; display: block; }
+  #ring-bg   { fill: none; stroke: #141422; }
+  #ring-prog { fill: none; stroke-linecap: round; transition: stroke 0.8s ease; }
+
+  /* Time display in center */
+  #time-display-group { cursor: pointer; }
+  #time-display {
+    font-size: clamp(36px,7vw,80px);
+    font-weight: 700;
+    fill: #e2e8f0;
+    text-anchor: middle;
+    dominant-baseline: central;
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 0.04em;
+  }
+  #time-input {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: #1a1a2e; border: 1px solid #6366f155;
+    color: #e2e8f0; font-family: 'Courier New', monospace;
+    font-size: clamp(18px,3vw,36px); font-weight: 700;
+    text-align: center; border-radius: 8px;
+    padding: 8px 12px; outline: none;
+    display: none; width: 120px;
+    letter-spacing: 0.04em;
+  }
+  #session-label {
+    font-size: clamp(9px,1vw,12px);
+    fill: #3d3d70; text-anchor: middle;
+    dominant-baseline: central;
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 0.2em; text-transform: uppercase;
+  }
+
+  /* Pomodoro dots */
+  #pomo-dots {
+    display: flex; gap: clamp(6px,1.2vw,14px);
+    align-items: center;
+  }
+  .pomo-dot {
+    width: clamp(10px,1.5vw,16px);
+    height: clamp(10px,1.5vw,16px);
+    border-radius: 50%;
+    border: 2px solid #3d2020;
+    background: transparent;
+    transition: background 0.4s, border-color 0.4s, box-shadow 0.4s;
+  }
+  .pomo-dot.done {
+    background: #ef4444;
+    border-color: #ef4444;
+    box-shadow: 0 0 8px #ef444488;
+  }
+
+  /* Buttons */
+  #btn-row {
+    display: flex; gap: clamp(10px,2vw,22px);
+    align-items: center;
+  }
+  .ctrl-btn {
+    background: transparent;
+    border: 1px solid #2a2a45;
+    color: #6366f1; font-family: 'Courier New', monospace;
+    font-size: clamp(10px,1.2vw,14px);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    padding: clamp(8px,1.2vh,12px) clamp(14px,2.5vw,28px);
+    border-radius: 8px; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .ctrl-btn:hover, .ctrl-btn:active {
+    background: #6366f111;
+    box-shadow: 0 0 16px #6366f144;
+  }
+  #btn-start {
+    font-size: clamp(12px,1.6vw,18px);
+    border-color: currentColor;
+    padding: clamp(10px,1.5vh,16px) clamp(24px,4vw,48px);
+  }
+  #btn-start.running {
+    color: #f59e0b; border-color: #f59e0b44;
+  }
+  #btn-start.running:hover { box-shadow: 0 0 16px #f59e0b44; background: #f59e0b0d; }
+
+  /* Session total */
+  #sessions-total {
+    font-size: clamp(9px,1.1vw,13px);
+    color: #2d2d55; letter-spacing: 0.15em;
+    text-align: center;
+  }
+  #sessions-total span { color: #4a4a88; }
+
+  /* Ambient glow */
+  #ambient {
+    position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    transition: background 1.2s ease;
+  }
+</style>
+</head>
+<body>
+<div id="ambient"></div>
+
+<div id="mode-title">Trabajo</div>
+
+<div id="ring-wrapper">
+  <svg id="ring-svg">
+    <circle id="ring-bg"/>
+    <circle id="ring-prog"/>
+    <g id="time-display-group">
+      <text id="time-display">25:00</text>
+      <text id="session-label" y="28">CLICK PARA EDITAR</text>
+    </g>
+  </svg>
+  <input type="number" id="time-input" min="1" max="99" placeholder="25">
+</div>
+
+<div id="pomo-dots">
+  <div class="pomo-dot" id="dot-0"></div>
+  <div class="pomo-dot" id="dot-1"></div>
+  <div class="pomo-dot" id="dot-2"></div>
+  <div class="pomo-dot" id="dot-3"></div>
+</div>
+
+<div id="btn-row">
+  <button class="ctrl-btn" id="btn-reset">Reset</button>
+  <button class="ctrl-btn" id="btn-start">Iniciar</button>
+  <button class="ctrl-btn" id="btn-skip">Saltar</button>
+</div>
+
+<div id="sessions-total">Sesiones completadas hoy: <span id="total-sessions-val">0</span></div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* -------- Config -------- */
+  const MODES = {
+    work:       { label: 'Trabajo',      defaultMin: 25, color: '#ef4444', glow: '#ef444422', glowStrong: '#ef4444aa' },
+    shortBreak: { label: 'Descanso',     defaultMin: 5,  color: '#10b981', glow: '#10b98122', glowStrong: '#10b981aa' },
+    longBreak:  { label: 'Descanso largo', defaultMin: 15, color: '#3b82f6', glow: '#3b82f622', glowStrong: '#3b82f6aa' },
+  };
+  const POMOS_BEFORE_LONG = 4;
+
+  // State
+  let mode         = 'work';
+  let running      = false;
+  let timeLeft     = 0;      // seconds
+  let totalTime    = 0;      // seconds (full duration)
+  let pomoDone     = 0;      // this session streak (0-3)
+  let totalSessions= 0;      // all-time
+  let timerInterval= null;
+
+  // Custom durations (minutes)
+  const customDur = { work: 25, shortBreak: 5, longBreak: 15 };
+
+  /* -------- SVG Ring sizing -------- */
+  let R, CX, CY, STROKE, CIRCUMFERENCE;
+
+  function sizeRing() {
+    const maxSize = Math.min(window.innerWidth * 0.72, window.innerHeight * 0.56, 340);
+    const size    = maxSize;
+    R             = size * 0.44;
+    CX            = size / 2;
+    CY            = size / 2;
+    STROKE        = Math.max(6, size * 0.048);
+    CIRCUMFERENCE = 2 * Math.PI * R;
+
+    const svg = document.getElementById('ring-svg');
+    svg.setAttribute('width', size);
+    svg.setAttribute('height', size);
+    svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+
+    ['ring-bg','ring-prog'].forEach(id => {
+      const el = document.getElementById(id);
+      el.setAttribute('cx', CX); el.setAttribute('cy', CY); el.setAttribute('r', R);
+      el.setAttribute('stroke-width', STROKE);
+    });
+
+    document.getElementById('ring-bg').setAttribute('stroke-dasharray', CIRCUMFERENCE);
+    document.getElementById('ring-bg').setAttribute('stroke-dashoffset', 0);
+    document.getElementById('ring-prog').setAttribute('stroke-dasharray', CIRCUMFERENCE);
+    document.getElementById('ring-prog').setAttribute('transform', `rotate(-90 ${CX} ${CY})`);
+
+    const td = document.getElementById('time-display');
+    td.setAttribute('x', CX); td.setAttribute('y', CY);
+
+    const sl = document.getElementById('session-label');
+    sl.setAttribute('x', CX);
+    sl.setAttribute('y', CY + size * 0.155);
+
+    updateRing();
+  }
+  sizeRing();
+  window.addEventListener('resize', sizeRing);
+
+  /* -------- Core timer logic -------- */
+  function getDuration(m) {
+    return customDur[m] * 60;
+  }
+
+  function setMode(m) {
+    mode      = m;
+    totalTime = getDuration(m);
+    timeLeft  = totalTime;
+    updateUI();
+  }
+
+  function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (!running) return;
+      timeLeft--;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        updateUI();
+        onTimerEnd();
+        return;
+      }
+      updateUI();
+    }, 1000);
+  }
+
+  function onTimerEnd() {
+    running = false;
+    clearInterval(timerInterval);
+    playEndSound();
+
+    if (mode === 'work') {
+      pomoDone++;
+      totalSessions++;
+      saveSessionCount(totalSessions);
+      updateDots();
+      document.getElementById('total-sessions-val').textContent = totalSessions;
+      if (pomoDone >= POMOS_BEFORE_LONG) {
+        pomoDone = 0;
+        updateDots();
+        setMode('longBreak');
+      } else {
+        setMode('shortBreak');
+      }
+    } else {
+      setMode('work');
+    }
+    document.getElementById('btn-start').textContent = 'Iniciar';
+    document.getElementById('btn-start').classList.remove('running');
+  }
+
+  function toggle() {
+    if (timeLeft <= 0) { setMode(mode); return; }
+    running = !running;
+    if (running) {
+      startTimer();
+      document.getElementById('btn-start').textContent = 'Pausa';
+      document.getElementById('btn-start').classList.add('running');
+    } else {
+      clearInterval(timerInterval);
+      document.getElementById('btn-start').textContent = 'Reanudar';
+      document.getElementById('btn-start').classList.remove('running');
+    }
+  }
+
+  function reset() {
+    running = false;
+    clearInterval(timerInterval);
+    timeLeft = getDuration(mode);
+    totalTime = timeLeft;
+    document.getElementById('btn-start').textContent = 'Iniciar';
+    document.getElementById('btn-start').classList.remove('running');
+    updateUI();
+  }
+
+  function skip() {
+    running = false;
+    clearInterval(timerInterval);
+    document.getElementById('btn-start').textContent = 'Iniciar';
+    document.getElementById('btn-start').classList.remove('running');
+    if (mode === 'work') {
+      pomoDone++;
+      totalSessions++;
+      saveSessionCount(totalSessions);
+      document.getElementById('total-sessions-val').textContent = totalSessions;
+      updateDots();
+      if (pomoDone >= POMOS_BEFORE_LONG) { pomoDone = 0; updateDots(); setMode('longBreak'); }
+      else setMode('shortBreak');
+    } else {
+      setMode('work');
+    }
+  }
+
+  /* -------- UI Update -------- */
+  function updateUI() {
+    updateTimeDisplay();
+    updateRing();
+    updateTheme();
+  }
+
+  function pad(n) { return String(n).padStart(2,'0'); }
+
+  function updateTimeDisplay() {
+    const m = Math.floor(timeLeft / 60);
+    const s = timeLeft % 60;
+    document.getElementById('time-display').textContent = `${pad(m)}:${pad(s)}`;
+    document.getElementById('mode-title').textContent = MODES[mode].label;
+    document.getElementById('mode-title').style.color = MODES[mode].color;
+  }
+
+  function updateRing() {
+    const pct    = totalTime > 0 ? timeLeft / totalTime : 1;
+    const offset = CIRCUMFERENCE * (1 - pct);
+    const ring   = document.getElementById('ring-prog');
+    ring.setAttribute('stroke-dashoffset', offset);
+    ring.setAttribute('stroke', MODES[mode].color);
+  }
+
+  function updateTheme() {
+    const cfg = MODES[mode];
+    document.getElementById('ambient').style.background =
+      `radial-gradient(ellipse at 50% 50%, ${cfg.glow} 0%, transparent 70%)`;
+    document.getElementById('ring-svg').style.filter =
+      `drop-shadow(0 0 ${Math.max(8,R*0.08)}px ${cfg.color}55)`;
+  }
+
+  function updateDots() {
+    for (let i = 0; i < 4; i++) {
+      const dot = document.getElementById(`dot-${i}`);
+      dot.classList.toggle('done', i < pomoDone);
+    }
+  }
+
+  /* -------- Custom duration editing -------- */
+  const timeDisplayGroup = document.getElementById('time-display-group');
+  const timeInput        = document.getElementById('time-input');
+
+  timeDisplayGroup.addEventListener('click', () => {
+    if (running) return;
+    timeInput.value = customDur[mode];
+    timeInput.style.display = 'block';
+    timeInput.focus();
+    timeInput.select();
+  });
+
+  timeInput.addEventListener('blur', commitEdit);
+  timeInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') commitEdit();
+    if (e.key === 'Escape') { timeInput.style.display = 'none'; }
+  });
+
+  function commitEdit() {
+    const val = parseInt(timeInput.value);
+    if (!isNaN(val) && val >= 1 && val <= 99) {
+      customDur[mode] = val;
+      reset();
+    }
+    timeInput.style.display = 'none';
+  }
+
+  /* -------- Buttons -------- */
+  document.getElementById('btn-start').addEventListener('click', toggle);
+  document.getElementById('btn-reset').addEventListener('click', reset);
+  document.getElementById('btn-skip').addEventListener('click',  skip);
+
+  /* -------- Audio -------- */
+  function playEndSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const beeps = [880, 1047, 1319];
+      beeps.forEach((freq, i) => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        const t = ctx.currentTime + i * 0.22;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.25, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+        osc.start(t); osc.stop(t + 0.38);
+      });
+      setTimeout(() => ctx.close(), 1500);
+    } catch(e) {}
+  }
+
+  /* -------- Persistence -------- */
+  async function saveSessionCount(n) {
+    try { await window.ModevI?.db?.set('total_sessions', String(n)); } catch(e) {}
+    try { localStorage.setItem('pomodoro_total_sessions', String(n)); } catch(e) {}
+  }
+
+  async function loadSessionCount() {
+    let n = 0;
+    try {
+      const v = await window.ModevI?.db?.get('total_sessions');
+      if (v) n = parseInt(v) || 0;
+    } catch(e) {}
+    if (!n) { try { n = parseInt(localStorage.getItem('pomodoro_total_sessions')) || 0; } catch(e){} }
+    totalSessions = n;
+    document.getElementById('total-sessions-val').textContent = totalSessions;
+  }
+
+  /* -------- Init -------- */
+  setMode('work');
+  updateDots();
+  loadSessionCount();
+
+  // Label hint changes when running
+  function updateLabel() {
+    const sl = document.getElementById('session-label');
+    sl.textContent = running ? '' : 'CLICK PARA EDITAR';
+  }
+
+  const origToggle = toggle;
+  window._pomodoroToggle = origToggle;
+
+  // Refresh label on state changes
+  document.getElementById('btn-start').addEventListener('click', updateLabel, false);
+  document.getElementById('btn-reset').addEventListener('click', updateLabel, false);
+  document.getElementById('btn-skip').addEventListener('click',  updateLabel, false);
+
+})();
+</script>
+</body>
+</html>

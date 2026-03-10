@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Snake</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0a0a0f;
+    color: #e2e8f0;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+  }
+  #ui {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; max-width: 600px;
+    padding: 6px 12px 4px;
+    flex-shrink: 0;
+  }
+  .score-box { text-align: center; }
+  .score-label { font-size: clamp(7px,1vw,10px); letter-spacing: 0.2em; color: #2d4a2d; text-transform: uppercase; }
+  .score-value { font-size: clamp(18px,3vw,32px); font-weight: 700; color: #39ff14; text-shadow: 0 0 12px #39ff1488; }
+  #hi-score-val { color: #f59e0b; text-shadow: 0 0 12px #f59e0b88; }
+  #canvas-wrapper {
+    position: relative;
+    flex-shrink: 0;
+  }
+  #game-canvas {
+    display: block;
+    border: 1px solid #1a3a1a;
+    box-shadow: 0 0 30px #39ff1415, inset 0 0 60px #000a00;
+  }
+  /* Overlay screens */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.88);
+    backdrop-filter: blur(2px);
+    gap: clamp(10px,2vh,20px);
+    z-index: 10;
+  }
+  .overlay.hidden { display: none; }
+  .overlay-title {
+    font-size: clamp(24px,5vw,52px);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 20px currentColor;
+  }
+  .overlay-sub {
+    font-size: clamp(11px,1.6vw,16px);
+    color: #4a7a4a; letter-spacing: 0.1em; text-align: center; line-height: 1.8;
+  }
+  .overlay-score { font-size: clamp(16px,2.5vw,28px); color: #39ff14; }
+  .overlay-hi    { font-size: clamp(12px,1.8vw,20px); color: #f59e0b; }
+  .btn {
+    background: transparent;
+    border: 1px solid #39ff14;
+    color: #39ff14;
+    font-family: 'Courier New', monospace;
+    font-size: clamp(12px,1.6vw,18px);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    padding: clamp(8px,1.2vh,14px) clamp(20px,3vw,40px);
+    border-radius: 6px; cursor: pointer;
+    box-shadow: 0 0 14px #39ff1444, inset 0 0 14px #39ff1411;
+    transition: box-shadow 0.15s, background 0.15s;
+  }
+  .btn:hover, .btn:active {
+    background: #39ff1418;
+    box-shadow: 0 0 28px #39ff1488, inset 0 0 20px #39ff1422;
+  }
+  #swipe-hint {
+    font-size: clamp(9px,1.1vw,12px); color: #1a3a1a;
+    text-align: center; padding: 4px 0 2px;
+    flex-shrink: 0; letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <div class="score-box">
+    <div class="score-label">Puntos</div>
+    <div class="score-value" id="score-val">0</div>
+  </div>
+  <div class="score-box">
+    <div class="score-label">Récord</div>
+    <div class="score-value" id="hi-score-val">0</div>
+  </div>
+</div>
+
+<div id="canvas-wrapper">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Start screen -->
+  <div class="overlay" id="start-screen">
+    <div class="overlay-title" style="color:#39ff14">SNAKE</div>
+    <div class="overlay-sub">
+      Toca o desliza para mover<br>
+      Flechas del teclado también funcionan<br>
+      <span style="color:#f59e0b88">&#9733;</span> Comida dorada vale 3 puntos
+    </div>
+    <button class="btn" id="start-btn">Jugar</button>
+  </div>
+
+  <!-- Game over screen -->
+  <div class="overlay hidden" id="gameover-screen">
+    <div class="overlay-title" style="color:#ef4444">GAME OVER</div>
+    <div class="overlay-score" id="go-score"></div>
+    <div class="overlay-hi"   id="go-hi"></div>
+    <button class="btn" id="replay-btn">Jugar de nuevo</button>
+  </div>
+</div>
+
+<div id="swipe-hint">desliza para cambiar dirección</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const GRID = 20;
+  let CELL, canvasW, canvasH;
+
+  const canvas = document.getElementById('game-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // Size canvas to fit screen
+  function sizeCanvas() {
+    const wrapper   = document.getElementById('canvas-wrapper');
+    const maxW      = Math.min(window.innerWidth - 16, 600);
+    const maxH      = window.innerHeight - 90;
+    const size      = Math.floor(Math.min(maxW, maxH) / GRID) * GRID;
+    CELL            = size / GRID;
+    canvas.width    = size;
+    canvas.height   = size;
+    canvasW         = size;
+    canvasH         = size;
+    wrapper.style.width  = size + 'px';
+    wrapper.style.height = size + 'px';
+  }
+  sizeCanvas();
+  window.addEventListener('resize', () => { sizeCanvas(); if (!running) drawIdle(); });
+
+  // State
+  let snake, dir, nextDir, food, goldenFood, score, hiScore, running, gameOver;
+  let lastTime = 0, speed;
+  let goldenTimer = 0, goldenVisible = false, goldenBlink = false;
+  const GOLDEN_INTERVAL = 15000; // ms
+  const GOLDEN_LIFETIME = 7000;
+
+  // High score persistence
+  async function loadHiScore() {
+    let hs = 0;
+    try { const v = await window.ModevI?.db?.get('snake_highscore'); if (v) hs = parseInt(v)||0; } catch(e){}
+    if (!hs) { try { hs = parseInt(localStorage.getItem('snake_highscore'))||0; } catch(e){} }
+    hiScore = hs;
+    document.getElementById('hi-score-val').textContent = hiScore;
+    return hs;
+  }
+
+  async function saveHiScore(s) {
+    try { await window.ModevI?.db?.set('snake_highscore', String(s)); } catch(e){}
+    try { localStorage.setItem('snake_highscore', String(s)); } catch(e){}
+  }
+
+  function initGame() {
+    const mid = Math.floor(GRID/2);
+    snake   = [{x:mid,y:mid},{x:mid-1,y:mid},{x:mid-2,y:mid}];
+    dir     = {x:1,y:0};
+    nextDir = {x:1,y:0};
+    score   = 0;
+    speed   = 160;
+    goldenFood    = null;
+    goldenTimer   = 0;
+    goldenVisible = false;
+    spawnFood();
+    document.getElementById('score-val').textContent = 0;
+    document.getElementById('hi-score-val').textContent = hiScore;
+  }
+
+  function spawnFood() {
+    let pos;
+    do {
+      pos = { x: Math.floor(Math.random()*GRID), y: Math.floor(Math.random()*GRID) };
+    } while (snake.some(s => s.x===pos.x && s.y===pos.y));
+    food = pos;
+  }
+
+  function spawnGolden() {
+    let pos;
+    do {
+      pos = { x: Math.floor(Math.random()*GRID), y: Math.floor(Math.random()*GRID) };
+    } while (snake.some(s=>s.x===pos.x&&s.y===pos.y) || (food&&food.x===pos.x&&food.y===pos.y));
+    goldenFood    = pos;
+    goldenVisible = true;
+    goldenBlink   = false;
+    goldenTimer   = GOLDEN_LIFETIME;
+  }
+
+  function step(delta) {
+    // Update golden food timer
+    if (goldenVisible && goldenFood) {
+      goldenTimer -= delta;
+      goldenBlink = goldenTimer < 2000 && Math.floor(goldenTimer / 250) % 2 === 0;
+      if (goldenTimer <= 0) { goldenFood = null; goldenVisible = false; goldenTimer = GOLDEN_INTERVAL; }
+    } else if (!goldenVisible) {
+      goldenTimer -= delta;
+      if (goldenTimer <= 0) { spawnGolden(); }
+    }
+
+    dir = {...nextDir};
+    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+    // Wall collision
+    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) { endGame(); return; }
+    // Self collision
+    if (snake.some(s => s.x===head.x && s.y===head.y)) { endGame(); return; }
+
+    snake.unshift(head);
+
+    let grow = false;
+    // Regular food
+    if (head.x===food.x && head.y===food.y) {
+      grow = true; score += 1; spawnFood();
+    }
+    // Golden food
+    if (goldenFood && head.x===goldenFood.x && head.y===goldenFood.y) {
+      grow = true; score += 3; goldenFood = null; goldenVisible = false; goldenTimer = GOLDEN_INTERVAL;
+    }
+
+    if (!grow) snake.pop();
+
+    // Update speed: faster as snake grows
+    speed = Math.max(60, 160 - (snake.length - 3) * 3);
+
+    document.getElementById('score-val').textContent = score;
+    if (score > hiScore) {
+      hiScore = score;
+      document.getElementById('hi-score-val').textContent = hiScore;
+      saveHiScore(hiScore);
+    }
+  }
+
+  async function endGame() {
+    running = false; gameOver = true;
+    document.getElementById('go-score').textContent  = `Puntuación: ${score}`;
+    document.getElementById('go-hi').textContent     = `Récord: ${hiScore}`;
+    document.getElementById('gameover-screen').classList.remove('hidden');
+  }
+
+  /* -------- Drawing -------- */
+  function drawGrid() {
+    ctx.strokeStyle = '#0d1a0d';
+    ctx.lineWidth   = 0.5;
+    for (let i = 0; i <= GRID; i++) {
+      ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,canvasH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(canvasW,i*CELL); ctx.stroke();
+    }
+  }
+
+  function drawFood() {
+    const x = food.x*CELL, y = food.y*CELL;
+    // Red glowing food
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(x+CELL/2, y+CELL/2, CELL*0.38, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur  = 0;
+    // Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath();
+    ctx.arc(x+CELL*0.38, y+CELL*0.34, CELL*0.12, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawGoldenFood(time) {
+    if (!goldenFood || !goldenVisible || goldenBlink) return;
+    const x = goldenFood.x*CELL, y = goldenFood.y*CELL;
+    const pulse = 0.36 + 0.05 * Math.sin(time / 120);
+    ctx.shadowColor = '#f59e0b';
+    ctx.shadowBlur  = 18;
+    ctx.fillStyle   = '#fbbf24';
+    ctx.beginPath();
+    // Star shape (simplified as rotating square)
+    const cx = x+CELL/2, cy = y+CELL/2, r = CELL*pulse;
+    const ang = (time / 500) % (Math.PI*2);
+    ctx.save(); ctx.translate(cx,cy); ctx.rotate(ang);
+    ctx.beginPath();
+    for (let i=0;i<4;i++) {
+      const a = i*Math.PI/2;
+      ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+      const a2 = a+Math.PI/4;
+      ctx.lineTo(Math.cos(a2)*r*0.5, Math.sin(a2)*r*0.5);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawSnake() {
+    snake.forEach((seg, i) => {
+      const x = seg.x*CELL, y = seg.y*CELL;
+      const isHead = i === 0;
+      const t = 1 - i/snake.length;
+      if (isHead) {
+        // Neon head with strong glow
+        ctx.shadowColor = '#39ff14';
+        ctx.shadowBlur  = 20;
+        ctx.fillStyle   = '#39ff14';
+        const pad = 1;
+        ctx.beginPath();
+        ctx.roundRect(x+pad, y+pad, CELL-pad*2, CELL-pad*2, CELL*0.25);
+        ctx.fill();
+        // Eyes
+        ctx.shadowBlur = 0;
+        ctx.fillStyle  = '#0a0a0f';
+        const ex = dir.x, ey = dir.y;
+        const eyeOff = CELL*0.22;
+        const eyeR   = CELL*0.1;
+        const cx = x+CELL/2, cy = y+CELL/2;
+        // Two eyes perpendicular to movement
+        const perp1 = {x:-ey*eyeOff+ex*eyeOff*0.6, y:ex*eyeOff+ey*eyeOff*0.6};
+        const perp2 = {x: ey*eyeOff+ex*eyeOff*0.6, y:-ex*eyeOff+ey*eyeOff*0.6};
+        ctx.beginPath(); ctx.arc(cx+perp1.x, cy+perp1.y, eyeR, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+perp2.x, cy+perp2.y, eyeR, 0, Math.PI*2); ctx.fill();
+      } else {
+        // Body: gradient from bright to dim
+        ctx.shadowColor = '#39ff14';
+        ctx.shadowBlur  = 6 * t;
+        const g = Math.floor(80 + 120*t);
+        ctx.fillStyle = `rgb(0,${g},0)`;
+        const pad = 1.5 + (1-t)*1.5;
+        ctx.beginPath();
+        ctx.roundRect(x+pad, y+pad, CELL-pad*2, CELL-pad*2, CELL*0.18);
+        ctx.fill();
+      }
+    });
+    ctx.shadowBlur = 0;
+  }
+
+  function drawIdle() {
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, canvasW, canvasH);
+    drawGrid();
+  }
+
+  let frameId;
+  let timeSinceStep = 0;
+
+  function gameLoop(timestamp) {
+    if (!running) return;
+    const delta = Math.min(timestamp - lastTime, 80);
+    lastTime = timestamp;
+    timeSinceStep += delta;
+
+    if (timeSinceStep >= speed) {
+      timeSinceStep -= speed;
+      step(delta);
+      if (!running) return;
+    }
+
+    // Draw
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0,0,canvasW,canvasH);
+    drawGrid();
+    drawFood();
+    drawGoldenFood(timestamp);
+    drawSnake();
+
+    frameId = requestAnimationFrame(gameLoop);
+  }
+
+  function startGame() {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('gameover-screen').classList.add('hidden');
+    initGame();
+    running   = true;
+    gameOver  = false;
+    lastTime  = performance.now();
+    timeSinceStep = 0;
+    cancelAnimationFrame(frameId);
+    frameId = requestAnimationFrame(gameLoop);
+  }
+
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('replay-btn').addEventListener('click', startGame);
+
+  /* -------- Input -------- */
+  function changeDir(dx, dy) {
+    // Prevent reversing
+    if (dx !== 0 && dir.x !== 0) return;
+    if (dy !== 0 && dir.y !== 0) return;
+    nextDir = {x:dx, y:dy};
+  }
+
+  window.addEventListener('keydown', e => {
+    if (!running) { if (e.key==='Enter'||e.key===' ') startGame(); return; }
+    switch(e.key) {
+      case 'ArrowUp':    case 'w': changeDir(0,-1);  e.preventDefault(); break;
+      case 'ArrowDown':  case 's': changeDir(0, 1);  e.preventDefault(); break;
+      case 'ArrowLeft':  case 'a': changeDir(-1,0);  e.preventDefault(); break;
+      case 'ArrowRight': case 'd': changeDir( 1,0);  e.preventDefault(); break;
+    }
+  });
+
+  // Swipe detection
+  let touchStartX = 0, touchStartY = 0;
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    touchStartX = e.changedTouches[0].clientX;
+    touchStartY = e.changedTouches[0].clientY;
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    if (!running) { startGame(); return; }
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    const minSwipe = 20;
+    if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      changeDir(dx > 0 ? 1 : -1, 0);
+    } else {
+      changeDir(0, dy > 0 ? 1 : -1);
+    }
+  }, { passive: false });
+
+  // Init
+  drawIdle();
+  loadHiScore();
+})();
+</script>
+</body>
+</html>

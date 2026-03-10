@@ -1,109 +1,253 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reloj Digital - ModevI</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            color: white;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        .time {
-            font-size: clamp(4rem, 15vw, 10rem);
-            font-weight: 200;
-            letter-spacing: 0.05em;
-            text-shadow: 0 0 40px rgba(99, 102, 241, 0.5);
-        }
-        .seconds {
-            font-size: clamp(1.5rem, 5vw, 3rem);
-            opacity: 0.5;
-            vertical-align: super;
-            font-weight: 300;
-        }
-        .date {
-            font-size: clamp(1rem, 3vw, 1.8rem);
-            opacity: 0.6;
-            margin-top: 1rem;
-            font-weight: 300;
-            text-transform: capitalize;
-        }
-        .dots {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-        }
-        .dot {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: rgba(99, 102, 241, 0.3);
-            border-radius: 50%;
-            animation: float 6s ease-in-out infinite;
-        }
-        @keyframes float {
-            0%, 100% { transform: translateY(0); opacity: 0.3; }
-            50% { transform: translateY(-20px); opacity: 0.8; }
-        }
-        .content { position: relative; z-index: 1; text-align: center; }
-        .greeting {
-            font-size: clamp(0.9rem, 2.5vw, 1.4rem);
-            opacity: 0.4;
-            margin-bottom: 2rem;
-            font-weight: 300;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reloj</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #060611;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+    font-family: 'Courier New', Courier, monospace;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #ambient-glow {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    transition: background 4s ease;
+    z-index: 0;
+  }
+  #container {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: clamp(8px, 1.8vh, 22px);
+  }
+  #clock-svg-wrapper {
+    transition: filter 4s ease;
+  }
+  #digital-time {
+    font-size: clamp(26px, 5.5vw, 68px);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #e2e8f0;
+    transition: text-shadow 4s ease, color 4s ease;
+  }
+  #date-display {
+    font-size: clamp(13px, 2.2vw, 26px);
+    color: #94a3b8;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: center;
+    transition: color 4s ease;
+  }
+  #timezone-display {
+    font-size: clamp(9px, 1.3vw, 16px);
+    color: #3d4875;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: -2px;
+  }
+</style>
 </head>
 <body>
-    <div class="dots" id="dots"></div>
-    <div class="content">
-        <div class="greeting" id="greeting"></div>
-        <div class="time" id="time"></div>
-        <div class="date" id="date"></div>
-    </div>
-    <script>
-        const days = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-        const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+<div id="ambient-glow"></div>
+<div id="container">
+  <div id="clock-svg-wrapper">
+    <svg id="clock-face" viewBox="-120 -120 240 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="faceGrad" cx="50%" cy="38%" r="68%">
+          <stop offset="0%" stop-color="#14163a"/>
+          <stop offset="100%" stop-color="#060611"/>
+        </radialGradient>
+        <radialGradient id="centerGrad" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stop-color="#2a2d55"/>
+          <stop offset="100%" stop-color="#0e1028"/>
+        </radialGradient>
+        <filter id="hand-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.8" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="sec-glow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- Outer bezel -->
+      <circle r="119" fill="none" stroke="#1a1d3a" stroke-width="2.5"/>
+      <circle r="116" fill="none" stroke="#12152e" stroke-width="1"/>
+      <!-- Face -->
+      <circle r="114" fill="url(#faceGrad)"/>
+      <!-- Tick marks -->
+      <g id="tick-marks"></g>
+      <!-- Hour numbers -->
+      <g id="hour-numbers"></g>
+      <!-- Inner decorative ring -->
+      <circle r="72" fill="none" stroke="#1a1d3a" stroke-width="0.6" stroke-dasharray="2 4"/>
+      <!-- Hands -->
+      <g id="hour-hand-g" filter="url(#hand-glow)">
+        <line id="hour-hand" x1="0" y1="9" x2="0" y2="-60"
+              stroke="#dde3f0" stroke-width="5.5" stroke-linecap="round"/>
+      </g>
+      <g id="minute-hand-g" filter="url(#hand-glow)">
+        <line id="minute-hand" x1="0" y1="11" x2="0" y2="-84"
+              stroke="#dde3f0" stroke-width="3.5" stroke-linecap="round"/>
+      </g>
+      <g id="second-hand-g" filter="url(#sec-glow)">
+        <line id="second-hand-tail" x1="0" y1="24" x2="0" y2="0"
+              stroke-width="1.8" stroke-linecap="round"/>
+        <line id="second-hand" x1="0" y1="0" x2="0" y2="-97"
+              stroke-width="1.8" stroke-linecap="round"/>
+        <circle id="sec-tip" cx="0" cy="-92" r="3.5"/>
+      </g>
+      <!-- Center hub -->
+      <circle r="7" fill="url(#centerGrad)" stroke="#2d3261" stroke-width="1"/>
+      <circle r="3.5" fill="#e2e8f0"/>
+      <circle r="1.8" fill="#060611"/>
+    </svg>
+  </div>
+  <div id="digital-time">00:00:00</div>
+  <div id="date-display">Lunes, 1 de Enero de 2025</div>
+  <div id="timezone-display">UTC+00:00</div>
+</div>
 
-        function update() {
-            const now = new Date();
-            const h = String(now.getHours()).padStart(2, '0');
-            const m = String(now.getMinutes()).padStart(2, '0');
-            const s = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('time').innerHTML = `${h}:${m}<span class="seconds">${s}</span>`;
-            document.getElementById('date').textContent = `${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]} de ${now.getFullYear()}`;
+<script>
+(function() {
+  'use strict';
 
-            const hour = now.getHours();
-            let greeting = 'Buenas noches';
-            if (hour >= 6 && hour < 13) greeting = 'Buenos días';
-            else if (hour >= 13 && hour < 20) greeting = 'Buenas tardes';
-            document.getElementById('greeting').textContent = greeting;
-        }
+  const DAYS_ES   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-        // Floating dots
-        const dotsContainer = document.getElementById('dots');
-        for (let i = 0; i < 30; i++) {
-            const dot = document.createElement('div');
-            dot.className = 'dot';
-            dot.style.left = Math.random() * 100 + '%';
-            dot.style.top = Math.random() * 100 + '%';
-            dot.style.animationDelay = Math.random() * 6 + 's';
-            dot.style.animationDuration = (4 + Math.random() * 4) + 's';
-            dotsContainer.appendChild(dot);
-        }
+  const THEMES = [
+    { h: [0,  5],  glow: '#6366f1', sec: '#818cf8', ambient: 'radial-gradient(ellipse at 50% 110%, #6366f11a 0%, transparent 65%)' },
+    { h: [5,  9],  glow: '#f59e0b', sec: '#fbbf24', ambient: 'radial-gradient(ellipse at 50% 110%, #f59e0b1e 0%, transparent 65%)' },
+    { h: [9,  12], glow: '#10b981', sec: '#34d399', ambient: 'radial-gradient(ellipse at 50% 110%, #10b9811c 0%, transparent 65%)' },
+    { h: [12, 17], glow: '#3b82f6', sec: '#60a5fa', ambient: 'radial-gradient(ellipse at 50% 110%, #3b82f61c 0%, transparent 65%)' },
+    { h: [17, 21], glow: '#8b5cf6', sec: '#a78bfa', ambient: 'radial-gradient(ellipse at 50% 110%, #8b5cf61c 0%, transparent 65%)' },
+    { h: [21, 24], glow: '#6366f1', sec: '#818cf8', ambient: 'radial-gradient(ellipse at 50% 110%, #6366f11a 0%, transparent 65%)' },
+  ];
 
-        update();
-        setInterval(update, 1000);
-    </script>
+  function getTheme(hour) {
+    return THEMES.find(t => hour >= t.h[0] && hour < t.h[1]) || THEMES[0];
+  }
+
+  // Build tick marks
+  const tickG = document.getElementById('tick-marks');
+  for (let i = 0; i < 60; i++) {
+    const isHour = i % 5 === 0;
+    const isQuarter = i % 15 === 0;
+    const angle = (i / 60) * Math.PI * 2 - Math.PI / 2;
+    const r1 = isQuarter ? 98 : isHour ? 103 : 109;
+    const r2 = 114;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', Math.cos(angle)*r1); line.setAttribute('y1', Math.sin(angle)*r1);
+    line.setAttribute('x2', Math.cos(angle)*r2); line.setAttribute('y2', Math.sin(angle)*r2);
+    line.setAttribute('stroke', isQuarter ? '#7c85c0' : isHour ? '#424878' : '#1e2244');
+    line.setAttribute('stroke-width', isQuarter ? '3' : isHour ? '2' : '1');
+    line.setAttribute('stroke-linecap', 'round');
+    tickG.appendChild(line);
+  }
+
+  // Build hour numbers
+  const numG = document.getElementById('hour-numbers');
+  for (let h = 1; h <= 12; h++) {
+    const angle = (h / 12) * Math.PI * 2 - Math.PI / 2;
+    const r = 86;
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('x', Math.cos(angle)*r);
+    text.setAttribute('y', Math.sin(angle)*r);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('fill', '#5a6494');
+    text.setAttribute('font-size', h % 3 === 0 ? '12' : '9.5');
+    text.setAttribute('font-family', 'Courier New, monospace');
+    text.setAttribute('font-weight', h % 3 === 0 ? '700' : '400');
+    text.textContent = h;
+    numG.appendChild(text);
+  }
+
+  // Responsive SVG size
+  function resizeClock() {
+    const svg = document.getElementById('clock-face');
+    const size = Math.min(window.innerWidth * 0.70, window.innerHeight * 0.60, 540);
+    svg.style.width  = size + 'px';
+    svg.style.height = size + 'px';
+  }
+  resizeClock();
+  window.addEventListener('resize', resizeClock);
+
+  // Timezone label
+  function buildTZLabel() {
+    try {
+      const tz     = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const offset = -new Date().getTimezoneOffset();
+      const sign   = offset >= 0 ? '+' : '-';
+      const hh     = String(Math.floor(Math.abs(offset)/60)).padStart(2,'0');
+      const mm     = String(Math.abs(offset)%60).padStart(2,'0');
+      return `${tz}  ·  UTC${sign}${hh}:${mm}`;
+    } catch(e) { return 'UTC'; }
+  }
+  document.getElementById('timezone-display').textContent = buildTZLabel();
+
+  let lastHour = -1;
+  let currentTheme = getTheme(new Date().getHours());
+
+  function applyTheme(theme) {
+    currentTheme = theme;
+    const gw = document.getElementById('clock-svg-wrapper');
+    gw.style.filter = `drop-shadow(0 0 clamp(10px,2.5vw,32px) ${theme.glow}80)`;
+    document.getElementById('ambient-glow').style.background = theme.ambient;
+    const dt = document.getElementById('digital-time');
+    dt.style.textShadow = `0 0 18px ${theme.glow}cc, 0 0 45px ${theme.glow}55, 0 0 80px ${theme.glow}22`;
+    // Second hand + tip color
+    ['second-hand','second-hand-tail'].forEach(id => {
+      document.getElementById(id).setAttribute('stroke', theme.sec);
+    });
+    document.getElementById('sec-tip').setAttribute('fill', theme.sec);
+  }
+  applyTheme(currentTheme);
+
+  function tick() {
+    const now = new Date();
+    const h  = now.getHours();
+    const m  = now.getMinutes();
+    const s  = now.getSeconds();
+    const ms = now.getMilliseconds();
+
+    // Smooth continuous angles
+    const secA  = (s + ms/1000) / 60 * 360;
+    const minA  = (m + (s + ms/1000)/60) / 60 * 360;
+    const hourA = ((h%12) + m/60 + s/3600) / 12 * 360;
+
+    document.getElementById('second-hand-g').setAttribute('transform', `rotate(${secA})`);
+    document.getElementById('minute-hand-g').setAttribute('transform', `rotate(${minA})`);
+    document.getElementById('hour-hand-g').setAttribute('transform',   `rotate(${hourA})`);
+
+    // Digital
+    document.getElementById('digital-time').textContent =
+      `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+    // Date
+    document.getElementById('date-display').textContent =
+      `${DAYS_ES[now.getDay()]}, ${now.getDate()} de ${MONTHS_ES[now.getMonth()]} de ${now.getFullYear()}`;
+
+    // Theme change on hour boundary
+    if (h !== lastHour) {
+      lastHour = h;
+      applyTheme(getTheme(h));
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+})();
+</script>
 </body>
 </html>

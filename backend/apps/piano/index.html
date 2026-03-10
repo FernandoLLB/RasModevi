@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Piano</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0a0a1a;
+    color: #e2e8f0;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+  }
+  #header {
+    padding: 10px 16px 6px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #1a1a35;
+    flex-shrink: 0; gap: 10px;
+  }
+  #app-title {
+    font-size: clamp(12px, 1.6vw, 18px);
+    letter-spacing: 0.2em; color: #4a4a8a; font-weight: 700;
+    text-transform: uppercase;
+  }
+  #controls-row {
+    display: flex; align-items: center; gap: 14px; flex-wrap: nowrap;
+  }
+  #instrument-select {
+    background: #141428; border: 1px solid #2a2a55;
+    color: #8888cc; font-family: 'Courier New', monospace;
+    font-size: clamp(9px, 1.1vw, 13px); border-radius: 6px;
+    padding: 4px 8px; cursor: pointer; outline: none;
+  }
+  #instrument-select option { background: #141428; }
+  #vol-label { font-size: clamp(8px, 0.9vw, 11px); color: #3d3d70; letter-spacing: 0.1em; }
+  #vol-slider {
+    width: clamp(60px, 8vw, 110px); height: 4px;
+    accent-color: #6366f1; cursor: pointer;
+  }
+  #note-display {
+    font-size: clamp(10px, 1.2vw, 14px); color: #6366f1;
+    letter-spacing: 0.1em; min-width: 120px; text-align: right;
+    white-space: nowrap;
+  }
+  #keyboard-container {
+    flex: 1; display: flex; align-items: flex-end; justify-content: center;
+    padding: 8px 6px 12px; min-height: 0; overflow: hidden;
+    position: relative;
+  }
+  #keyboard {
+    position: relative;
+    display: flex;
+    height: 100%;
+  }
+  .white-key {
+    position: relative;
+    background: linear-gradient(180deg, #e8eaf6 0%, #f5f5ff 60%, #ffffff 100%);
+    border: 1px solid #9090b8;
+    border-radius: 0 0 7px 7px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.06s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 -2px 4px rgba(0,0,0,0.1);
+  }
+  .white-key:active, .white-key.active {
+    background: linear-gradient(180deg, #a5b4fc 0%, #c7d2fe 60%, #e0e7ff 100%);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4), inset 0 2px 4px rgba(0,0,0,0.15);
+    transform: translateY(2px);
+  }
+  .white-key .key-label {
+    position: absolute; bottom: 6px; left: 0; right: 0;
+    text-align: center;
+    font-size: clamp(7px, 0.9vw, 11px);
+    color: #6b7280; font-weight: 600; letter-spacing: 0.05em;
+    pointer-events: none;
+  }
+  .black-key {
+    position: absolute;
+    background: linear-gradient(180deg, #1a1a2e 0%, #12122a 60%, #0a0a18 100%);
+    border: 1px solid #3333558a;
+    border-radius: 0 0 5px 5px;
+    cursor: pointer;
+    z-index: 2;
+    transition: background 0.06s;
+    box-shadow: 2px 4px 10px rgba(0,0,0,0.7), inset 0 -1px 3px rgba(255,255,255,0.05);
+  }
+  .black-key:active, .black-key.active {
+    background: linear-gradient(180deg, #4338ca 0%, #312e81 60%, #1e1b4b 100%);
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.6);
+    transform: translateY(2px);
+  }
+  #footer {
+    padding: 4px 16px 8px;
+    font-size: clamp(8px, 0.9vw, 11px); color: #25254a;
+    text-align: center; flex-shrink: 0; letter-spacing: 0.12em;
+  }
+</style>
+</head>
+<body>
+<div id="header">
+  <div id="app-title">Piano</div>
+  <div id="controls-row">
+    <select id="instrument-select">
+      <option value="triangle">Piano</option>
+      <option value="sine">Órgano</option>
+      <option value="sawtooth">Synth</option>
+      <option value="square">8-bit</option>
+    </select>
+    <span id="vol-label">VOL</span>
+    <input type="range" id="vol-slider" min="0" max="100" value="70">
+    <div id="note-display">—</div>
+  </div>
+</div>
+
+<div id="keyboard-container">
+  <div id="keyboard"></div>
+</div>
+
+<div id="footer">TOCA · MULTI-TOUCH · C3 → B4</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // Note definitions: 2 octaves C3..B4
+  const NOTE_NAMES_ES = { C:'Do', D:'Re', E:'Mi', F:'Fa', G:'Sol', A:'La', B:'Si' };
+  const NOTE_FREQS = {
+    'C3':130.81,'D3':146.83,'E3':164.81,'F3':174.61,'G3':196.00,'A3':220.00,'B3':246.94,
+    'Cs3':138.59,'Ds3':155.56,'Fs3':185.00,'Gs3':207.65,'As3':233.08,
+    'C4':261.63,'D4':293.66,'E4':329.63,'F4':349.23,'G4':392.00,'A4':440.00,'B4':493.88,
+    'Cs4':277.18,'Ds4':311.13,'Fs4':369.99,'Gs4':415.30,'As4':466.16,
+  };
+
+  const WHITE_NOTES = ['C3','D3','E3','F3','G3','A3','B3','C4','D4','E4','F4','G4','A4','B4'];
+  // [noteKey, positionBetweenWhiteKeys_from_left, whiteKeyIndexBeforeIt]
+  const BLACK_NOTES = [
+    {key:'Cs3',after:0},{key:'Ds3',after:1},
+    {key:'Fs3',after:3},{key:'Gs3',after:4},{key:'As3',after:5},
+    {key:'Cs4',after:7},{key:'Ds4',after:8},
+    {key:'Fs4',after:10},{key:'Gs4',after:11},{key:'As4',after:12},
+  ];
+
+  const NOTE_DISPLAY = {
+    'C3':'Do3','D3':'Re3','E3':'Mi3','F3':'Fa3','G3':'Sol3','A3':'La3','B3':'Si3',
+    'Cs3':'Do#3','Ds3':'Re#3','Fs3':'Fa#3','Gs3':'Sol#3','As3':'La#3',
+    'C4':'Do4','D4':'Re4','E4':'Mi4','F4':'Fa4','G4':'Sol4','A4':'La4 ·440Hz','B4':'Si4',
+    'Cs4':'Do#4','Ds4':'Re#4','Fs4':'Fa#4','Gs4':'Sol#4','As4':'La#4',
+  };
+
+  // Audio context
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  const masterGain = { node: null };
+  function getMasterGain() {
+    const ctx = getAudioCtx();
+    if (!masterGain.node) {
+      masterGain.node = ctx.createGain();
+      masterGain.node.connect(ctx.destination);
+    }
+    return masterGain.node;
+  }
+
+  let volume = 0.70;
+  let waveType = 'triangle';
+
+  // Active notes: Map<noteKey, {osc, gain, startTime}>
+  const activeNotes = new Map();
+
+  function playNote(noteKey) {
+    if (activeNotes.has(noteKey)) return;
+    const ctx  = getAudioCtx();
+    const freq = NOTE_FREQS[noteKey];
+    if (!freq) return;
+
+    const gain = ctx.createGain();
+    gain.connect(getMasterGain());
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(volume * 0.55, ctx.currentTime + 0.012); // attack
+
+    const osc = ctx.createOscillator();
+    osc.type = waveType;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    // slight pitch warmth for triangle/sine
+    if (waveType === 'triangle' || waveType === 'sine') {
+      osc.frequency.linearRampToValueAtTime(freq * 0.9985, ctx.currentTime + 0.4);
+    }
+    osc.connect(gain);
+    osc.start(ctx.currentTime);
+
+    activeNotes.set(noteKey, { osc, gain });
+
+    // Visual
+    const el = document.querySelector(`[data-note="${noteKey}"]`);
+    if (el) el.classList.add('active');
+
+    // Update note display
+    document.getElementById('note-display').textContent = NOTE_DISPLAY[noteKey] || noteKey;
+  }
+
+  function stopNote(noteKey) {
+    const note = activeNotes.get(noteKey);
+    if (!note) return;
+    const ctx = getAudioCtx();
+    const { osc, gain } = note;
+    gain.gain.cancelScheduledValues(ctx.currentTime);
+    gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18); // release
+    osc.stop(ctx.currentTime + 0.22);
+    activeNotes.delete(noteKey);
+
+    const el = document.querySelector(`[data-note="${noteKey}"]`);
+    if (el) el.classList.remove('active');
+    if (activeNotes.size === 0) {
+      document.getElementById('note-display').textContent = '—';
+    }
+  }
+
+  // Build keyboard
+  function buildKeyboard() {
+    const container = document.getElementById('keyboard-container');
+    const keyboard  = document.getElementById('keyboard');
+    keyboard.innerHTML = '';
+
+    const h = container.clientHeight - 20;
+    const wkH = Math.min(h, 420);
+    const wkW = Math.max(28, Math.min(60, (container.clientWidth - 12) / WHITE_NOTES.length));
+    const bkH = wkH * 0.62;
+    const bkW = wkW * 0.62;
+
+    keyboard.style.height = wkH + 'px';
+    keyboard.style.width  = (wkW * WHITE_NOTES.length) + 'px';
+
+    // White keys
+    WHITE_NOTES.forEach((note, i) => {
+      const key = document.createElement('div');
+      key.className = 'white-key';
+      key.dataset.note = note;
+      key.style.width  = wkW + 'px';
+      key.style.height = wkH + 'px';
+
+      // Note label (C notes get special treatment)
+      const label = document.createElement('div');
+      label.className = 'key-label';
+      const noteLetter = note.replace(/\d/g,'');
+      label.textContent = noteLetter === 'C' ? note : noteLetter;
+      key.appendChild(label);
+      keyboard.appendChild(key);
+    });
+
+    // Black keys
+    BLACK_NOTES.forEach(({ key: note, after }) => {
+      const key = document.createElement('div');
+      key.className = 'black-key';
+      key.dataset.note = note;
+      key.style.width  = bkW + 'px';
+      key.style.height = bkH + 'px';
+      key.style.top    = '0';
+      key.style.left   = (after * wkW + wkW - bkW/2) + 'px';
+      keyboard.appendChild(key);
+    });
+  }
+
+  // Touch / Mouse event handling
+  // Map: pointerId -> noteKey
+  const touchMap = new Map();
+
+  function noteFromPoint(x, y) {
+    // Check black keys first (higher z-index)
+    const blackKeys = document.querySelectorAll('.black-key');
+    for (const k of blackKeys) {
+      const r = k.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        return k.dataset.note;
+      }
+    }
+    const whiteKeys = document.querySelectorAll('.white-key');
+    for (const k of whiteKeys) {
+      const r = k.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        return k.dataset.note;
+      }
+    }
+    return null;
+  }
+
+  function onTouchStart(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const note = noteFromPoint(t.clientX, t.clientY);
+      if (note) { touchMap.set(t.identifier, note); playNote(note); }
+    }
+  }
+  function onTouchMove(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const newNote = noteFromPoint(t.clientX, t.clientY);
+      const oldNote = touchMap.get(t.identifier);
+      if (newNote !== oldNote) {
+        if (oldNote) stopNote(oldNote);
+        if (newNote) { touchMap.set(t.identifier, newNote); playNote(newNote); }
+        else touchMap.delete(t.identifier);
+      }
+    }
+  }
+  function onTouchEnd(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const note = touchMap.get(t.identifier);
+      if (note) stopNote(note);
+      touchMap.delete(t.identifier);
+    }
+  }
+
+  // Mouse events (single touch)
+  let mouseNote = null;
+  function onMouseDown(e) {
+    if (e.button !== 0) return;
+    const note = noteFromPoint(e.clientX, e.clientY);
+    if (note) { mouseNote = note; playNote(note); }
+  }
+  function onMouseMove(e) {
+    if (!mouseNote && e.buttons !== 1) return;
+    if (e.buttons !== 1) { if (mouseNote) { stopNote(mouseNote); mouseNote = null; } return; }
+    const note = noteFromPoint(e.clientX, e.clientY);
+    if (note !== mouseNote) {
+      if (mouseNote) stopNote(mouseNote);
+      mouseNote = note;
+      if (note) playNote(note);
+    }
+  }
+  function onMouseUp() {
+    if (mouseNote) { stopNote(mouseNote); mouseNote = null; }
+  }
+
+  document.addEventListener('touchstart',  onTouchStart, { passive: false });
+  document.addEventListener('touchmove',   onTouchMove,  { passive: false });
+  document.addEventListener('touchend',    onTouchEnd,   { passive: false });
+  document.addEventListener('touchcancel', onTouchEnd,   { passive: false });
+  document.addEventListener('mousedown',   onMouseDown);
+  document.addEventListener('mousemove',   onMouseMove);
+  document.addEventListener('mouseup',     onMouseUp);
+
+  // Keyboard mapping
+  const KEY_MAP = {
+    'a':'C3','w':'Cs3','s':'D3','e':'Ds3','d':'E3','f':'F3','t':'Fs3',
+    'g':'G3','y':'Gs3','h':'A3','u':'As3','j':'B3',
+    'k':'C4','o':'Cs4','l':'D4','p':'Ds4',';':'E4',
+    "'": 'F4', ']': 'Fs4', 'Enter': 'G4',
+  };
+  const heldKeys = new Set();
+  window.addEventListener('keydown', e => {
+    const note = KEY_MAP[e.key];
+    if (note && !heldKeys.has(e.key)) { heldKeys.add(e.key); playNote(note); }
+  });
+  window.addEventListener('keyup', e => {
+    const note = KEY_MAP[e.key];
+    if (note) { heldKeys.delete(e.key); stopNote(note); }
+  });
+
+  // Instrument selector
+  document.getElementById('instrument-select').addEventListener('change', function() {
+    waveType = this.value;
+    saveSettings();
+  });
+
+  // Volume
+  document.getElementById('vol-slider').addEventListener('input', function() {
+    volume = this.value / 100;
+    if (masterGain.node) masterGain.node.gain.setValueAtTime(1, getAudioCtx().currentTime);
+    saveSettings();
+  });
+
+  // Persist settings
+  async function saveSettings() {
+    const data = { instrument: waveType, volume: Math.round(volume*100) };
+    try {
+      await window.ModevI?.db?.set('piano_instrument', data.instrument);
+      await window.ModevI?.db?.set('piano_volume', String(data.volume));
+    } catch(e) {}
+    try {
+      localStorage.setItem('piano_instrument', data.instrument);
+      localStorage.setItem('piano_volume', String(data.volume));
+    } catch(e) {}
+  }
+
+  async function loadSettings() {
+    let inst = null, vol = null;
+    try {
+      inst = await window.ModevI?.db?.get('piano_instrument');
+      vol  = await window.ModevI?.db?.get('piano_volume');
+    } catch(e) {}
+    if (!inst) inst = localStorage.getItem('piano_instrument');
+    if (!vol)  vol  = localStorage.getItem('piano_volume');
+    if (inst) {
+      waveType = inst;
+      document.getElementById('instrument-select').value = inst;
+    }
+    if (vol) {
+      volume = parseInt(vol) / 100;
+      document.getElementById('vol-slider').value = vol;
+    }
+  }
+
+  // Init
+  buildKeyboard();
+  window.addEventListener('resize', buildKeyboard);
+  loadSettings();
+})();
+</script>
+</body>
+</html>

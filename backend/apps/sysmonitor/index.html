@@ -1,196 +1,477 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor del Sistema - ModevI</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background: #0a0a0f;
-            color: white;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            min-height: 100vh;
-            padding: 1.5rem;
-        }
-        .header {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            margin-bottom: 1.5rem;
-        }
-        .header h1 {
-            font-size: 1.3rem;
-            font-weight: 400;
-        }
-        .header .dot {
-            width: 8px;
-            height: 8px;
-            background: #10b981;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1rem;
-        }
-        .card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 16px;
-            padding: 1.2rem;
-        }
-        .card-title {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            opacity: 0.5;
-            margin-bottom: 0.8rem;
-        }
-        .metric {
-            font-size: 2.5rem;
-            font-weight: 200;
-        }
-        .metric-unit {
-            font-size: 1rem;
-            opacity: 0.4;
-        }
-        .metric-sub {
-            font-size: 0.85rem;
-            opacity: 0.4;
-            margin-top: 0.3rem;
-        }
-        .bar-container {
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 3px;
-            margin-top: 0.8rem;
-            overflow: hidden;
-        }
-        .bar {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 0.5s ease;
-        }
-        .bar-cpu { background: linear-gradient(90deg, #6366f1, #818cf8); }
-        .bar-mem { background: linear-gradient(90deg, #ec4899, #f472b6); }
-        .bar-disk { background: linear-gradient(90deg, #10b981, #34d399); }
-        .bar-temp { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-        .chart {
-            height: 60px;
-            display: flex;
-            align-items: flex-end;
-            gap: 2px;
-            margin-top: 0.8rem;
-        }
-        .chart-bar {
-            flex: 1;
-            background: rgba(99, 102, 241, 0.4);
-            border-radius: 2px 2px 0 0;
-            transition: height 0.3s;
-            min-height: 2px;
-        }
-        .hostname {
-            font-size: 0.75rem;
-            opacity: 0.3;
-            margin-top: 1.5rem;
-            text-align: center;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor del Sistema</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #08090f;
+    color: #e2e8f0;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  #header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px 8px;
+    border-bottom: 1px solid #1a1d2e;
+    flex-shrink: 0;
+  }
+  #header-title {
+    font-size: clamp(11px, 1.4vw, 16px);
+    letter-spacing: 0.25em;
+    color: #4a5280;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  #pulse-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981aa;
+    animation: pulse 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.85)} }
+  #uptime-display {
+    font-size: clamp(9px, 1.2vw, 13px);
+    color: #2d3561;
+    letter-spacing: 0.12em;
+  }
+  #grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 10px;
+    padding: 10px;
+    min-height: 0;
+  }
+  .panel {
+    background: #0d0e1c;
+    border: 1px solid #1a1d2e;
+    border-radius: 12px;
+    padding: 14px 16px 12px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .panel::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent, #6366f1)44, transparent);
+  }
+  .panel-title {
+    font-size: clamp(9px, 1.1vw, 12px);
+    letter-spacing: 0.2em;
+    color: #3d4470;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+  /* PANEL 1 - CPU Canvas */
+  #cpu-panel { --accent: #6366f1; }
+  #cpu-header {
+    display: flex; align-items: baseline; gap: 8px;
+    flex-shrink: 0; margin-bottom: 6px;
+  }
+  #cpu-value {
+    font-size: clamp(22px, 3.5vw, 42px);
+    font-weight: 700;
+    color: #818cf8;
+    line-height: 1;
+  }
+  #cpu-unit { font-size: clamp(12px,1.5vw,18px); color: #4a5280; }
+  #cpu-label { font-size: clamp(9px,1vw,11px); color: #2d3561; margin-left: auto; }
+  #cpu-canvas-wrapper { flex: 1; min-height: 0; position: relative; }
+  #cpu-canvas { width: 100%; height: 100%; display: block; }
+
+  /* PANEL 2 - Temp Gauge */
+  #temp-panel { --accent: #f59e0b; align-items: center; }
+  #temp-svg-wrapper {
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%;
+  }
+  #temp-svg { overflow: visible; }
+  #temp-center-text { text-anchor: middle; }
+  #temp-val { font-size: 22px; font-weight: 700; fill: #fbbf24; font-family: 'Courier New', monospace; }
+  #temp-unit-text { font-size: 11px; fill: #6b7280; font-family: 'Courier New', monospace; }
+  #temp-label { font-size: 10px; fill: #3d4470; letter-spacing: 2px; font-family: 'Courier New', monospace; }
+
+  /* PANELS 3 & 4 - Bar panels */
+  #ram-panel  { --accent: #ec4899; }
+  #disk-panel { --accent: #10b981; }
+  .big-value {
+    font-size: clamp(20px, 3vw, 38px);
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .bar-rows { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+  .bar-row { display: flex; flex-direction: column; gap: 4px; }
+  .bar-row-header { display: flex; justify-content: space-between; align-items: baseline; }
+  .bar-row-label { font-size: clamp(8px,1vw,11px); color: #3d4470; letter-spacing: 0.1em; text-transform: uppercase; }
+  .bar-row-val   { font-size: clamp(9px,1.1vw,13px); color: #64748b; }
+  .bar-track {
+    height: 8px; background: #141626; border-radius: 4px;
+    overflow: hidden; position: relative;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.6s ease;
+    position: relative;
+  }
+  .bar-fill::after {
+    content: '';
+    position: absolute; top: 0; right: 0; bottom: 0; width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15));
+  }
+  .bar-used  { background: linear-gradient(90deg, #be185d, #ec4899); }
+  .bar-free  { background: linear-gradient(90deg, #065f46, #10b981); }
+  .bar-dused { background: linear-gradient(90deg, #0369a1, #38bdf8); }
+  .bar-dfree { background: linear-gradient(90deg, #065f46, #34d399); }
+  #ram-percent  { color: #f472b6; }
+  #disk-percent { color: #38bdf8; }
+</style>
 </head>
 <body>
-    <div class="header">
-        <div class="dot"></div>
-        <h1>Monitor del Sistema</h1>
+<div id="header">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div id="pulse-dot"></div>
+    <div id="header-title">Monitor del Sistema</div>
+  </div>
+  <div id="uptime-display">--</div>
+</div>
+
+<div id="grid">
+  <!-- Panel 1: CPU -->
+  <div class="panel" id="cpu-panel">
+    <div class="panel-title">Procesador (CPU)</div>
+    <div id="cpu-header">
+      <div id="cpu-value">--</div>
+      <div id="cpu-unit">%</div>
+      <div id="cpu-label">60 s</div>
     </div>
-    <div class="grid">
-        <div class="card">
-            <div class="card-title">CPU</div>
-            <div class="metric" id="cpu">--<span class="metric-unit">%</span></div>
-            <div class="metric-sub" id="cpuInfo"></div>
-            <div class="bar-container"><div class="bar bar-cpu" id="cpuBar" style="width:0%"></div></div>
-            <div class="chart" id="cpuChart"></div>
-        </div>
-        <div class="card">
-            <div class="card-title">Memoria RAM</div>
-            <div class="metric" id="mem">--<span class="metric-unit">%</span></div>
-            <div class="metric-sub" id="memInfo"></div>
-            <div class="bar-container"><div class="bar bar-mem" id="memBar" style="width:0%"></div></div>
-        </div>
-        <div class="card">
-            <div class="card-title">Almacenamiento</div>
-            <div class="metric" id="disk">--<span class="metric-unit">%</span></div>
-            <div class="metric-sub" id="diskInfo"></div>
-            <div class="bar-container"><div class="bar bar-disk" id="diskBar" style="width:0%"></div></div>
-        </div>
-        <div class="card">
-            <div class="card-title">Temperatura CPU</div>
-            <div class="metric" id="temp">--<span class="metric-unit">°C</span></div>
-            <div class="metric-sub" id="tempInfo"></div>
-            <div class="bar-container"><div class="bar bar-temp" id="tempBar" style="width:0%"></div></div>
-        </div>
+    <div id="cpu-canvas-wrapper">
+      <canvas id="cpu-canvas"></canvas>
     </div>
-    <div class="hostname" id="hostname"></div>
+  </div>
 
-    <script>
-        const API = window.location.origin;
-        const cpuHistory = new Array(30).fill(0);
+  <!-- Panel 2: Temperature Gauge -->
+  <div class="panel" id="temp-panel">
+    <div class="panel-title">Temperatura CPU</div>
+    <div id="temp-svg-wrapper">
+      <svg id="temp-svg" viewBox="-100 -90 200 130">
+        <!-- Gauge arc zones: green 30-60, yellow 60-75, red 75-100 -->
+        <path id="gauge-bg"   d="" fill="none" stroke="#1a1d2e" stroke-width="12" stroke-linecap="round"/>
+        <path id="gauge-green"  d="" fill="none" stroke="#10b981" stroke-width="10" stroke-linecap="round" opacity="0.35"/>
+        <path id="gauge-yellow" d="" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" opacity="0.35"/>
+        <path id="gauge-red"    d="" fill="none" stroke="#ef4444" stroke-width="10" stroke-linecap="round" opacity="0.35"/>
+        <path id="gauge-needle-track" d="" fill="none" stroke="#6366f133" stroke-width="3" stroke-linecap="round"/>
+        <!-- Tick labels -->
+        <g id="gauge-ticks"></g>
+        <!-- Active needle arc -->
+        <path id="gauge-active" d="" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+        <!-- Needle -->
+        <line id="gauge-needle" x1="0" y1="0" x2="0" y2="-72" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="0" cy="0" r="5" fill="#fbbf24"/>
+        <circle cx="0" cy="0" r="2.5" fill="#08090f"/>
+        <!-- Center text -->
+        <g id="temp-center-text">
+          <text id="temp-val" x="0" y="-16">--</text>
+          <text id="temp-unit-text" x="0" y="-4">°C</text>
+          <text id="temp-label" x="0" y="22">TEMPERATURA</text>
+        </g>
+      </svg>
+    </div>
+  </div>
 
-        function formatBytes(b) {
-            const gb = b / (1024**3);
-            return gb.toFixed(1) + ' GB';
-        }
+  <!-- Panel 3: RAM -->
+  <div class="panel" id="ram-panel">
+    <div class="panel-title">Memoria RAM</div>
+    <div class="big-value"><span id="ram-percent" style="color:#f472b6">--</span><span style="font-size:0.5em;color:#3d4470">%</span></div>
+    <div class="bar-rows">
+      <div class="bar-row">
+        <div class="bar-row-header">
+          <span class="bar-row-label">Usada</span>
+          <span class="bar-row-val" id="ram-used-val">-- GB</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-used" id="ram-used-bar" style="width:0%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-row-header">
+          <span class="bar-row-label">Libre</span>
+          <span class="bar-row-val" id="ram-free-val">-- GB</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-free" id="ram-free-bar" style="width:0%"></div></div>
+      </div>
+      <div style="font-size:clamp(8px,0.9vw,10px);color:#2d3561;margin-top:2px" id="ram-total-label"></div>
+    </div>
+  </div>
 
-        function renderChart() {
-            const chart = document.getElementById('cpuChart');
-            chart.innerHTML = '';
-            cpuHistory.forEach(v => {
-                const bar = document.createElement('div');
-                bar.className = 'chart-bar';
-                bar.style.height = v + '%';
-                chart.appendChild(bar);
-            });
-        }
+  <!-- Panel 4: Disk -->
+  <div class="panel" id="disk-panel">
+    <div class="panel-title">Almacenamiento</div>
+    <div class="big-value"><span id="disk-percent" style="color:#38bdf8">--</span><span style="font-size:0.5em;color:#3d4470">%</span></div>
+    <div class="bar-rows">
+      <div class="bar-row">
+        <div class="bar-row-header">
+          <span class="bar-row-label">Usado</span>
+          <span class="bar-row-val" id="disk-used-val">-- GB</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-dused" id="disk-used-bar" style="width:0%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-row-header">
+          <span class="bar-row-label">Libre</span>
+          <span class="bar-row-val" id="disk-free-val">-- GB</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill bar-dfree" id="disk-free-bar" style="width:0%"></div></div>
+      </div>
+      <div style="font-size:clamp(8px,0.9vw,10px);color:#2d3561;margin-top:2px" id="disk-total-label"></div>
+    </div>
+  </div>
+</div>
 
-        async function update() {
-            try {
-                const res = await fetch(API + '/api/system/info');
-                const d = await res.json();
+<script>
+(function() {
+  'use strict';
 
-                document.getElementById('cpu').innerHTML = `${d.cpu_percent}<span class="metric-unit">%</span>`;
-                document.getElementById('cpuInfo').textContent = `${d.cpu_count} cores · ${d.cpu_freq ? Math.round(d.cpu_freq) + ' MHz' : ''}`;
-                document.getElementById('cpuBar').style.width = d.cpu_percent + '%';
+  /* -------- CPU Canvas Chart -------- */
+  const cpuCanvas  = document.getElementById('cpu-canvas');
+  const cpuCtx     = cpuCanvas.getContext('2d');
+  const CPU_HIST   = 60;
+  const cpuHistory = new Array(CPU_HIST).fill(0);
 
-                cpuHistory.push(d.cpu_percent);
-                cpuHistory.shift();
-                renderChart();
+  function resizeCanvas() {
+    const wrapper = document.getElementById('cpu-canvas-wrapper');
+    const dpr = window.devicePixelRatio || 1;
+    cpuCanvas.width  = wrapper.clientWidth  * dpr;
+    cpuCanvas.height = wrapper.clientHeight * dpr;
+    cpuCtx.scale(dpr, dpr);
+  }
 
-                document.getElementById('mem').innerHTML = `${d.memory_percent}<span class="metric-unit">%</span>`;
-                document.getElementById('memInfo').textContent = `${formatBytes(d.memory_used)} / ${formatBytes(d.memory_total)}`;
-                document.getElementById('memBar').style.width = d.memory_percent + '%';
+  function drawCPUChart(currentPct) {
+    const w = cpuCanvas.clientWidth;
+    const h = cpuCanvas.clientHeight;
+    if (w < 4 || h < 4) return;
+    cpuCtx.clearRect(0, 0, w, h);
 
-                document.getElementById('disk').innerHTML = `${d.disk_percent}<span class="metric-unit">%</span>`;
-                document.getElementById('diskInfo').textContent = `${formatBytes(d.disk_used)} / ${formatBytes(d.disk_total)}`;
-                document.getElementById('diskBar').style.width = d.disk_percent + '%';
+    // Grid lines
+    cpuCtx.strokeStyle = '#1a1d2e';
+    cpuCtx.lineWidth = 0.5;
+    [25, 50, 75].forEach(pct => {
+      const y = h - (pct/100)*h;
+      cpuCtx.beginPath(); cpuCtx.moveTo(0,y); cpuCtx.lineTo(w,y); cpuCtx.stroke();
+      cpuCtx.fillStyle = '#2d3561';
+      cpuCtx.font = `${Math.max(7, h*0.09)}px Courier New`;
+      cpuCtx.fillText(pct+'%', 2, y - 2);
+    });
 
-                const temp = d.cpu_temp ? d.cpu_temp.toFixed(1) : '--';
-                document.getElementById('temp').innerHTML = `${temp}<span class="metric-unit">°C</span>`;
-                document.getElementById('tempInfo').textContent = d.cpu_temp ? (d.cpu_temp < 60 ? 'Normal' : d.cpu_temp < 75 ? 'Elevada' : 'Alta') : '';
-                document.getElementById('tempBar').style.width = (d.cpu_temp ? Math.min(d.cpu_temp, 100) : 0) + '%';
+    if (cpuHistory.every(v => v === 0)) return;
 
-                document.getElementById('hostname').textContent = `${d.hostname} · ${d.os} · ${d.platform}`;
-            } catch (e) {
-                console.error('Error fetching system info:', e);
-            }
-        }
+    const step = w / (CPU_HIST - 1);
 
-        update();
-        setInterval(update, 2000);
-    </script>
+    // Fill gradient
+    const grad = cpuCtx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#6366f144');
+    grad.addColorStop(1, '#6366f108');
+    cpuCtx.beginPath();
+    cpuHistory.forEach((v, i) => {
+      const x = i * step;
+      const y = h - (v/100)*h;
+      if (i === 0) cpuCtx.moveTo(x, y); else cpuCtx.lineTo(x, y);
+    });
+    cpuCtx.lineTo((CPU_HIST-1)*step, h);
+    cpuCtx.lineTo(0, h);
+    cpuCtx.closePath();
+    cpuCtx.fillStyle = grad;
+    cpuCtx.fill();
+
+    // Line with color based on current value
+    const lineColor = currentPct >= 80 ? '#ef4444' : currentPct >= 50 ? '#f59e0b' : '#6366f1';
+    cpuCtx.beginPath();
+    cpuHistory.forEach((v, i) => {
+      const x = i * step;
+      const y = h - (v/100)*h;
+      if (i === 0) cpuCtx.moveTo(x, y); else cpuCtx.lineTo(x, y);
+    });
+    cpuCtx.strokeStyle = lineColor;
+    cpuCtx.lineWidth = 2;
+    cpuCtx.lineJoin = 'round';
+    cpuCtx.stroke();
+
+    // Current value dot
+    const lastX = (CPU_HIST-1)*step;
+    const lastY = h - (currentPct/100)*h;
+    cpuCtx.beginPath();
+    cpuCtx.arc(lastX, lastY, 4, 0, Math.PI*2);
+    cpuCtx.fillStyle = lineColor;
+    cpuCtx.fill();
+    cpuCtx.strokeStyle = '#08090f';
+    cpuCtx.lineWidth = 1.5;
+    cpuCtx.stroke();
+  }
+
+  /* -------- Temperature Gauge -------- */
+  const R = 72; // radius
+  const START_ANG = Math.PI * 0.75;    // bottom-left (225 deg)
+  const END_ANG   = Math.PI * 2.25;    // bottom-right (405 deg = 45 deg)
+  const TOTAL_ANG = END_ANG - START_ANG; // 270 deg span
+  const TEMP_MIN  = 20, TEMP_MAX = 100;
+
+  function polarToXY(angle, r) {
+    return { x: Math.cos(angle)*r, y: Math.sin(angle)*r };
+  }
+
+  function describeArc(r, startAngle, endAngle) {
+    if (Math.abs(endAngle - startAngle) < 0.001) return '';
+    const s = polarToXY(startAngle, r);
+    const e = polarToXY(endAngle, r);
+    const large = (endAngle - startAngle) > Math.PI ? 1 : 0;
+    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`;
+  }
+
+  function tempToAngle(temp) {
+    const pct = Math.max(0, Math.min(1, (temp - TEMP_MIN)/(TEMP_MAX - TEMP_MIN)));
+    return START_ANG + pct * TOTAL_ANG;
+  }
+
+  // Set static zone paths
+  document.getElementById('gauge-bg').setAttribute('d', describeArc(R, START_ANG, END_ANG));
+  // Green zone: 20-60
+  document.getElementById('gauge-green').setAttribute('d',
+    describeArc(R, START_ANG, tempToAngle(60)));
+  // Yellow zone: 60-75
+  document.getElementById('gauge-yellow').setAttribute('d',
+    describeArc(R, tempToAngle(60), tempToAngle(75)));
+  // Red zone: 75-100
+  document.getElementById('gauge-red').setAttribute('d',
+    describeArc(R, tempToAngle(75), END_ANG));
+
+  // Tick marks and labels on gauge
+  const ticksG = document.getElementById('gauge-ticks');
+  [20, 30, 40, 50, 60, 70, 80, 90, 100].forEach(t => {
+    const ang = tempToAngle(t);
+    const inner = polarToXY(ang, R - 16);
+    const outer = polarToXY(ang, R - 6);
+    const label = polarToXY(ang, R - 28);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', outer.x); line.setAttribute('y1', outer.y);
+    line.setAttribute('x2', inner.x); line.setAttribute('y2', inner.y);
+    line.setAttribute('stroke', t >= 75 ? '#7f1d1d' : t >= 60 ? '#78350f' : '#1e3a2a');
+    line.setAttribute('stroke-width', t % 20 === 0 ? '1.8' : '1');
+    ticksG.appendChild(line);
+    if (t % 20 === 0 || t === 60 || t === 75) {
+      const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x', label.x); txt.setAttribute('y', label.y);
+      txt.setAttribute('text-anchor','middle'); txt.setAttribute('dominant-baseline','central');
+      txt.setAttribute('fill', t >= 75 ? '#7f1d1d' : t >= 60 ? '#78350f' : '#1e3a2a');
+      txt.setAttribute('font-size','8'); txt.setAttribute('font-family','Courier New, monospace');
+      txt.textContent = t;
+      ticksG.appendChild(txt);
+    }
+  });
+
+  function updateGauge(temp) {
+    if (temp == null || isNaN(temp)) return;
+    const ang = tempToAngle(temp);
+    const needlePt = polarToXY(ang - Math.PI/2, 72); // needle points outward
+    // Rotate needle
+    const deg = (ang * 180 / Math.PI) + 90;
+    document.getElementById('gauge-needle').setAttribute('transform', `rotate(${deg})`);
+    // Active arc
+    document.getElementById('gauge-active').setAttribute('d', describeArc(R, START_ANG, ang));
+    const color = temp >= 75 ? '#ef4444' : temp >= 60 ? '#f59e0b' : '#10b981';
+    document.getElementById('gauge-active').setAttribute('stroke', color);
+    document.getElementById('gauge-needle').setAttribute('stroke', color);
+    document.getElementById('gauge-needle').previousElementSibling?.setAttribute('fill', color);
+    document.getElementById('temp-val').textContent = temp.toFixed(1);
+    document.getElementById('temp-val').setAttribute('fill', color);
+    // Status text
+    const status = temp >= 80 ? 'ALTA' : temp >= 60 ? 'ELEVADA' : 'NORMAL';
+    document.getElementById('temp-label').textContent = status;
+  }
+
+  /* -------- Uptime formatter -------- */
+  function formatUptime(seconds) {
+    if (!seconds && seconds !== 0) return '--';
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (d > 0) return `UP ${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `UP ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function fmtGB(bytes) {
+    if (!bytes && bytes !== 0) return '--';
+    return (bytes / 1073741824).toFixed(2) + ' GB';
+  }
+
+  /* -------- Main fetch loop -------- */
+  async function fetchAndUpdate() {
+    try {
+      const res = await fetch('/api/system/info', { cache: 'no-store' });
+      if (!res.ok) throw new Error(res.status);
+      const d = await res.json();
+
+      // CPU
+      const cpu = parseFloat(d.cpu_percent) || 0;
+      cpuHistory.push(cpu); cpuHistory.shift();
+      const cpuColor = cpu >= 80 ? '#ef4444' : cpu >= 50 ? '#f59e0b' : '#818cf8';
+      document.getElementById('cpu-value').textContent = cpu.toFixed(1);
+      document.getElementById('cpu-value').style.color = cpuColor;
+      resizeCanvas();
+      drawCPUChart(cpu);
+
+      // Temp
+      const temp = d.cpu_temp ?? d.temperature ?? null;
+      updateGauge(temp);
+
+      // RAM
+      const memPct  = parseFloat(d.memory_percent) || 0;
+      const memUsed = d.memory_used  || 0;
+      const memTotal= d.memory_total || 0;
+      const memFree = Math.max(0, memTotal - memUsed);
+      document.getElementById('ram-percent').textContent    = memPct.toFixed(1);
+      document.getElementById('ram-used-val').textContent   = fmtGB(memUsed);
+      document.getElementById('ram-free-val').textContent   = fmtGB(memFree);
+      document.getElementById('ram-used-bar').style.width   = memPct + '%';
+      document.getElementById('ram-free-bar').style.width   = (100 - memPct) + '%';
+      document.getElementById('ram-total-label').textContent= `Total: ${fmtGB(memTotal)}`;
+
+      // Disk
+      const dskPct  = parseFloat(d.disk_percent) || 0;
+      const dskUsed = d.disk_used  || 0;
+      const dskTotal= d.disk_total || 0;
+      const dskFree = Math.max(0, dskTotal - dskUsed);
+      document.getElementById('disk-percent').textContent    = dskPct.toFixed(1);
+      document.getElementById('disk-used-val').textContent   = fmtGB(dskUsed);
+      document.getElementById('disk-free-val').textContent   = fmtGB(dskFree);
+      document.getElementById('disk-used-bar').style.width   = dskPct + '%';
+      document.getElementById('disk-free-bar').style.width   = (100 - dskPct) + '%';
+      document.getElementById('disk-total-label').textContent= `Total: ${fmtGB(dskTotal)}`;
+
+      // Uptime
+      document.getElementById('uptime-display').textContent = formatUptime(d.uptime_seconds);
+
+    } catch(e) {
+      console.warn('System info fetch failed:', e);
+    }
+  }
+
+  // Init
+  window.addEventListener('resize', () => { resizeCanvas(); drawCPUChart(cpuHistory[cpuHistory.length-1]); });
+  resizeCanvas();
+  drawCPUChart(0);
+  fetchAndUpdate();
+  setInterval(fetchAndUpdate, 1500);
+})();
+</script>
 </body>
 </html>
