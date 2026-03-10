@@ -61,7 +61,7 @@ DEMO_APPS = [
             "formatos de 12/24 horas."
         ),
         "category_slug": "utilidades",
-        "icon_path": "apps/clock/icon.svg",
+        "icon_path": "/apps/clock/icon.svg",
         "permissions": [],
         "version": "1.0.0",
     },
@@ -75,7 +75,7 @@ DEMO_APPS = [
             "y lectura desde tarjeta microSD o USB."
         ),
         "category_slug": "multimedia",
-        "icon_path": "apps/photoframe/icon.svg",
+        "icon_path": "/apps/photoframe/icon.svg",
         "permissions": [],
         "version": "1.0.0",
     },
@@ -89,7 +89,7 @@ DEMO_APPS = [
             "ocupación de disco y actividad de red."
         ),
         "category_slug": "sistema",
-        "icon_path": "apps/sysmonitor/icon.svg",
+        "icon_path": "/apps/sysmonitor/icon.svg",
         "permissions": ["sensors"],
         "version": "1.0.0",
     },
@@ -103,7 +103,7 @@ DEMO_APPS = [
             "local con la base de datos del dispositivo."
         ),
         "category_slug": "productividad",
-        "icon_path": "apps/notes/icon.svg",
+        "icon_path": "/apps/notes/icon.svg",
         "permissions": ["db"],
         "version": "1.0.0",
     },

@@ -47,7 +47,10 @@ export default function AppRunnerPage() {
     )
   }
 
-  const appUrl = app.install_path ? `/installed/${app_id}/` : `/apps/${app.store_app?.slug || app_id}/`
+  const isDemoApp = app.install_path?.startsWith('apps/')
+  const appUrl = isDemoApp
+    ? `/apps/${app.store_app?.slug}/`
+    : `/installed/${app_id}/`
 
   return (
     <div className="fixed inset-0 bg-black z-50" onMouseMove={handleMouseMove} onTouchStart={() => setShowBack(true)}>

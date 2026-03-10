@@ -1,8 +1,10 @@
-import { Download, Play, Square, Loader2 } from 'lucide-react'
+import { Download, Play, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useDevice } from '../../context/DeviceContext'
 
 export default function InstallButton({ storeApp, size = 'sm' }) {
-  const { installedApps, installingIds, install, uninstall, activate, deactivate } = useDevice()
+  const { installedApps, installingIds, install, activate } = useDevice()
+  const navigate = useNavigate()
   const installed = installedApps.find(a => a.store_app_id === storeApp.id)
   const isInstalling = installingIds.has(storeApp.id)
 
@@ -31,25 +33,25 @@ export default function InstallButton({ storeApp, size = 'sm' }) {
     )
   }
 
-  if (installed.is_active) {
-    return (
-      <button
-        onClick={() => deactivate(installed.id)}
-        className={`${cls} bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25`}
-      >
-        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-        Activa
-      </button>
-    )
+  const handleOpen = async () => {
+    if (!installed.is_active) await activate(installed.id)
+    navigate(`/running/${installed.id}`)
   }
 
   return (
     <button
-      onClick={() => activate(installed.id)}
-      className={`${cls} bg-violet-500/15 text-violet-300 border border-violet-500/25 hover:bg-violet-500/25`}
+      onClick={handleOpen}
+      className={`${cls} ${
+        installed.is_active
+          ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+          : 'bg-violet-500 hover:bg-violet-600 text-white shadow-lg shadow-violet-500/20'
+      }`}
     >
-      <Play size={size === 'sm' ? 12 : 16} />
-      Activar
+      {installed.is_active && (
+        <span className="w-1.5 h-1.5 bg-white/80 rounded-full animate-pulse" />
+      )}
+      <Play size={size === 'sm' ? 12 : 16} fill="currentColor" />
+      Abrir
     </button>
   )
 }
