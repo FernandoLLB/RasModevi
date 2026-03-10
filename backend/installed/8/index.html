@@ -1,0 +1,889 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=800, height=480">
+<title>WeatherIO — ModevI</title>
+<style>
+  :root {
+    --bg-primary: #0f0f1a;
+    --bg-secondary: #1a1a2e;
+    --bg-card: rgba(255, 255, 255, 0.05);
+    --bg-glass: rgba(255, 255, 255, 0.08);
+    --text-primary: #f0f0f5;
+    --text-secondary: #8888aa;
+    --text-accent: #64b5f6;
+    --accent-blue: #42a5f5;
+    --accent-orange: #ffb74d;
+    --accent-cyan: #4dd0e1;
+    --accent-purple: #b388ff;
+    --border-glass: rgba(255, 255, 255, 0.1);
+    --shadow-glow: 0 0 40px rgba(66, 165, 245, 0.15);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 800px;
+    height: 480px;
+    overflow: hidden;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Animated background gradient */
+  body::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(66, 165, 245, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(179, 136, 255, 0.06) 0%, transparent 50%);
+    animation: bgShift 20s ease-in-out infinite alternate;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  @keyframes bgShift {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-5%, -3%); }
+  }
+
+  /* Header */
+  .header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px 10px;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .app-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(66, 165, 245, 0.3);
+  }
+
+  .app-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .location-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    backdrop-filter: blur(10px);
+  }
+
+  .refresh-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+  }
+
+  .refresh-btn:active {
+    background: rgba(66, 165, 245, 0.2);
+    color: var(--accent-blue);
+    transform: scale(0.92);
+  }
+
+  .refresh-btn.spinning svg {
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Main content */
+  .content {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 4px 24px 16px;
+    overflow: hidden;
+  }
+
+  /* Left column - Current weather */
+  .current-weather {
+    flex: 1.1;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius);
+    padding: 24px;
+    backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-glow);
+  }
+
+  .current-weather::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  }
+
+  .weather-icon-main {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 4px 20px rgba(255, 183, 77, 0.3));
+    animation: iconFloat 4s ease-in-out infinite;
+  }
+
+  @keyframes iconFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  .current-temp {
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -2px;
+    background: linear-gradient(180deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+  }
+
+  .current-temp .unit {
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  .weather-desc {
+    font-size: 16px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 16px;
+  }
+
+  .current-meta {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+  }
+
+  .meta-item svg {
+    flex-shrink: 0;
+  }
+
+  .meta-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .meta-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* Right column - Hourly forecast */
+  .forecast-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .forecast-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+
+  .hourly-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+
+  .hourly-list::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .hourly-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .hourly-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+
+  .hour-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    backdrop-filter: blur(10px);
+    transition: background 0.2s ease;
+    min-height: 48px;
+    flex-shrink: 0;
+  }
+
+  .hour-row.current-hour {
+    background: rgba(66, 165, 245, 0.12);
+    border-color: rgba(66, 165, 245, 0.25);
+  }
+
+  .hour-time {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    width: 48px;
+    flex-shrink: 0;
+  }
+
+  .hour-row.current-hour .hour-time {
+    color: var(--accent-blue);
+  }
+
+  .hour-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+
+  .hour-temp {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    flex: 1;
+    text-align: right;
+  }
+
+  .hour-bar-container {
+    flex: 1.5;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .hour-bar {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+    transition: width 0.6s ease;
+  }
+
+  /* Loading state */
+  .loading-screen {
+    position: absolute;
+    z-index: 10;
+    inset: 0;
+    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+
+  .loading-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid rgba(66, 165, 245, 0.15);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+
+  .loading-text {
+    font-size: 15px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  /* Error state */
+  .error-screen {
+    position: absolute;
+    z-index: 10;
+    inset: 0;
+    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+
+  .error-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .error-icon {
+    width: 56px;
+    height: 56px;
+    color: #ef5350;
+  }
+
+  .error-msg {
+    font-size: 15px;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 320px;
+  }
+
+  .retry-btn {
+    padding: 12px 32px;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-height: 48px;
+  }
+
+  .retry-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* Last updated */
+  .last-updated {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 4px 0 10px;
+    opacity: 0.7;
+  }
+
+  /* Temp color helpers */
+  .temp-cold { color: #64b5f6; }
+  .temp-mild { color: #81c784; }
+  .temp-warm { color: #ffb74d; }
+  .temp-hot { color: #ef5350; }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Cargando datos meteorológicos…</div>
+</div>
+
+<div class="error-screen hidden" id="errorScreen">
+  <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="8" x2="12" y2="12"/>
+    <line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+  <div class="error-msg" id="errorMsg">No se pudo obtener los datos del tiempo.</div>
+  <button class="retry-btn" onclick="fetchWeather()">Reintentar</button>
+</div>
+
+<header class="header">
+  <div class="header-left">
+    <div class="app-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v2"/>
+        <path d="M12 20v2"/>
+        <path d="m4.93 4.93 1.41 1.41"/>
+        <path d="m17.66 17.66 1.41 1.41"/>
+        <path d="M2 12h2"/>
+        <path d="M20 12h2"/>
+        <path d="m6.34 17.66-1.41 1.41"/>
+        <path d="m19.07 4.93-1.41 1.41"/>
+        <circle cx="12" cy="12" r="4"/>
+      </svg>
+    </div>
+    <span class="app-title">WeatherIO</span>
+  </div>
+  <div class="header-right">
+    <div class="location-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      Alicante, España
+    </div>
+    <button class="refresh-btn" id="refreshBtn" onclick="fetchWeather()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+        <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="content">
+  <div class="current-weather" id="currentWeather">
+    <div class="weather-icon-main" id="mainIcon"></div>
+    <div class="current-temp" id="currentTemp">--<span class="unit">°C</span></div>
+    <div class="weather-desc" id="weatherDesc">Cargando…</div>
+    <div class="current-meta">
+      <div class="meta-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64b5f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.7 7.7a7.5 7.5 0 1 0-11.4 9.7"/>
+          <path d="M9.4 4.6A7.5 7.5 0 0 1 19 12"/>
+          <path d="M12 2v4"/>
+          <path d="M12 18v4"/>
+          <path d="m4.9 4.9 2.8 2.8"/>
+          <path d="m16.3 16.3 2.8 2.8"/>
+        </svg>
+        <div>
+          <div class="meta-label">Viento</div>
+          <div class="meta-value" id="windSpeed">-- km/h</div>
+        </div>
+      </div>
+      <div class="meta-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b388ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <div>
+          <div class="meta-label">Dirección</div>
+          <div class="meta-value" id="windDir">--°</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="forecast-panel">
+    <div class="forecast-title">Próximas horas</div>
+    <div class="hourly-list" id="hourlyList"></div>
+  </div>
+</div>
+
+<div class="last-updated" id="lastUpdated"></div>
+
+<script>
+const WMO_CODES = {
+  0: { desc: 'Cielo despejado', icon: 'clear' },
+  1: { desc: 'Mayormente despejado', icon: 'mostly-clear' },
+  2: { desc: 'Parcialmente nublado', icon: 'partly-cloudy' },
+  3: { desc: 'Nublado', icon: 'overcast' },
+  45: { desc: 'Niebla', icon: 'fog' },
+  48: { desc: 'Niebla con escarcha', icon: 'fog' },
+  51: { desc: 'Llovizna ligera', icon: 'drizzle' },
+  53: { desc: 'Llovizna moderada', icon: 'drizzle' },
+  55: { desc: 'Llovizna intensa', icon: 'drizzle' },
+  56: { desc: 'Llovizna helada ligera', icon: 'drizzle' },
+  57: { desc: 'Llovizna helada intensa', icon: 'drizzle' },
+  61: { desc: 'Lluvia ligera', icon: 'rain' },
+  63: { desc: 'Lluvia moderada', icon: 'rain' },
+  65: { desc: 'Lluvia intensa', icon: 'heavy-rain' },
+  66: { desc: 'Lluvia helada ligera', icon: 'rain' },
+  67: { desc: 'Lluvia helada intensa', icon: 'heavy-rain' },
+  71: { desc: 'Nevada ligera', icon: 'snow' },
+  73: { desc: 'Nevada moderada', icon: 'snow' },
+  75: { desc: 'Nevada intensa', icon: 'snow' },
+  77: { desc: 'Granos de nieve', icon: 'snow' },
+  80: { desc: 'Chubascos ligeros', icon: 'rain' },
+  81: { desc: 'Chubascos moderados', icon: 'rain' },
+  82: { desc: 'Chubascos violentos', icon: 'heavy-rain' },
+  85: { desc: 'Chubascos de nieve ligeros', icon: 'snow' },
+  86: { desc: 'Chubascos de nieve intensos', icon: 'snow' },
+  95: { desc: 'Tormenta', icon: 'thunder' },
+  96: { desc: 'Tormenta con granizo ligero', icon: 'thunder' },
+  99: { desc: 'Tormenta con granizo', icon: 'thunder' },
+};
+
+function getWeatherSVG(iconKey, size = 100) {
+  const s = size;
+  const svgs = {
+    'clear': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <circle cx="50" cy="50" r="22" fill="#FFD54F" stroke="#FFB300" stroke-width="2"/>
+      <g stroke="#FFB300" stroke-width="3" stroke-linecap="round">
+        <line x1="50" y1="10" x2="50" y2="20"/>
+        <line x1="50" y1="80" x2="50" y2="90"/>
+        <line x1="10" y1="50" x2="20" y2="50"/>
+        <line x1="80" y1="50" x2="90" y2="50"/>
+        <line x1="21.7" y1="21.7" x2="28.8" y2="28.8"/>
+        <line x1="71.2" y1="71.2" x2="78.3" y2="78.3"/>
+        <line x1="21.7" y1="78.3" x2="28.8" y2="71.2"/>
+        <line x1="71.2" y1="28.8" x2="78.3" y2="21.7"/>
+      </g>
+    </svg>`,
+    'mostly-clear': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <circle cx="40" cy="42" r="18" fill="#FFD54F" stroke="#FFB300" stroke-width="2"/>
+      <g stroke="#FFB300" stroke-width="2.5" stroke-linecap="round">
+        <line x1="40" y1="12" x2="40" y2="19"/>
+        <line x1="18" y1="42" x2="11" y2="42"/>
+        <line x1="20.3" y1="22.3" x2="25.3" y2="27.3"/>
+      </g>
+      <path d="M58 70 Q58 58 68 55 Q66 46 75 44 Q84 42 87 50 Q95 51 95 59 Q95 70 85 70 Z" fill="rgba(200,215,230,0.7)" stroke="rgba(180,195,210,0.5)" stroke-width="1.5"/>
+    </svg>`,
+    'partly-cloudy': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <circle cx="38" cy="36" r="16" fill="#FFD54F" stroke="#FFB300" stroke-width="2"/>
+      <g stroke="#FFB300" stroke-width="2.5" stroke-linecap="round">
+        <line x1="38" y1="10" x2="38" y2="16"/>
+        <line x1="14" y1="36" x2="8" y2="36"/>
+        <line x1="20" y1="18" x2="24.2" y2="22.2"/>
+        <line x1="56" y1="18" x2="51.8" y2="22.2"/>
+      </g>
+      <path d="M30 78 Q26 78 24 74 Q20 74 19 70 Q16 68 17 64 Q17 58 24 56 Q26 48 36 48 Q44 48 48 54 Q52 50 58 52 Q66 54 66 62 Q72 63 72 70 Q72 78 64 78 Z" fill="rgba(190,205,225,0.8)" stroke="rgba(170,185,205,0.6)" stroke-width="1.5"/>
+    </svg>`,
+    'overcast': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <path d="M22 72 Q18 72 16 68 Q12 66 13 62 Q13 56 20 54 Q22 44 34 44 Q42 44 46 50 Q50 46 56 48 Q64 50 64 58 Q70 59 70 66 Q70 72 62 72 Z" fill="rgba(160,175,195,0.9)" stroke="rgba(140,155,175,0.6)" stroke-width="1.5"/>
+      <path d="M40 58 Q36 58 34 54 Q30 54 29 50 Q26 48 27 44 Q27 38 34 36 Q36 28 46 28 Q54 28 58 34 Q62 30 68 32 Q76 34 76 42 Q82 43 82 50 Q82 58 74 58 Z" fill="rgba(180,195,215,0.85)" stroke="rgba(160,175,195,0.5)" stroke-width="1.5"/>
+    </svg>`,
+    'fog': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <g stroke="rgba(180,195,215,0.7)" stroke-width="3.5" stroke-linecap="round">
+        <line x1="20" y1="35" x2="80" y2="35"/>
+        <line x1="15" y1="47" x2="85" y2="47"/>
+        <line x1="20" y1="59" x2="80" y2="59"/>
+        <line x1="25" y1="71" x2="75" y2="71"/>
+      </g>
+    </svg>`,
+    'drizzle': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <path d="M25 56 Q21 56 19 52 Q15 50 16 46 Q16 40 23 38 Q25 30 35 30 Q43 30 47 36 Q51 32 57 34 Q65 36 65 44 Q71 45 71 52 Q71 56 63 56 Z" fill="rgba(180,195,215,0.85)" stroke="rgba(160,175,195,0.5)" stroke-width="1.5"/>
+      <g fill="#64B5F6">
+        <circle cx="34" cy="65" r="2.2"/>
+        <circle cx="48" cy="68" r="2.2"/>
+        <circle cx="56" cy="63" r="2.2"/>
+        <circle cx="40" cy="75" r="2.2"/>
+        <circle cx="52" cy="76" r="2.2"/>
+      </g>
+    </svg>`,
+    'rain': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <path d="M22 52 Q18 52 16 48 Q12 46 13 42 Q13 36 20 34 Q22 26 34 26 Q42 26 46 32 Q50 28 56 30 Q64 32 64 40 Q70 41 70 48 Q70 52 62 52 Z" fill="rgba(160,175,195,0.9)" stroke="rgba(140,155,175,0.6)" stroke-width="1.5"/>
+      <g stroke="#42A5F5" stroke-width="2.5" stroke-linecap="round">
+        <line x1="30" y1="60" x2="27" y2="72"/>
+        <line x1="42" y1="58" x2="39" y2="70"/>
+        <line x1="54" y1="60" x2="51" y2="72"/>
+        <line x1="64" y1="57" x2="61" y2="69"/>
+      </g>
+    </svg>`,
+    'heavy-rain': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <path d="M22 48 Q18 48 16 44 Q12 42 13 38 Q13 32 20 30 Q22 22 34 22 Q42 22 46 28 Q50 24 56 26 Q64 28 64 36 Q70 37 70 44 Q70 48 62 48 Z" fill="rgba(130,145,170,0.95)" stroke="rgba(110,125,150,0.6)" stroke-width="1.5"/>
+      <g stroke="#2196F3" stroke-width="3" stroke-linecap="round">
+        <line x1="28" y1="55" x2="23" y2="72"/>
+        <line x1="38" y1="53" x2="33" y2="70"/>
+        <line x1="48" y1="56" x2="43" y2="73"/>
+        <line x1="58" y1="53" x2="53" y2="70"/>
+        <line x1="66" y1="55" x2="61" y2="72"/>
+      </g>
+    </svg>`,
+    'snow': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <path d="M25 52 Q21 52 19 48 Q15 46 16 42 Q16 36 23 34 Q25 26 35 26 Q43 26 47 32 Q51 28 57 30 Q65 32 65 40 Q71 41 71 48 Q71 52 63 52 Z" fill="rgba(190,205,225,0.85)" stroke="rgba(170,185,205,0.5)" stroke-width="1.5"/>
+      <g fill="#E3F2FD">
+        <circle cx="32" cy="64" r="3"/>
+        <circle cx="46" cy="60" r="3"/>
+        <circle cx="58" cy="66" r="3"/>
+        <circle cx="38" cy="76" r="2.5"/>
+        <circle cx="52" cy="78" r="2.5"/>
+      </g>
+    </svg>`,
+    'thunder': `<svg width="${s}" height="${s}" viewBox="0 0 100 100" fill="none">
+      <path d="M22 46 Q18 46 16 42 Q12 40 13 36 Q13 30 20 28 Q22 20 34 20 Q42 20 46 26 Q50 22 56 24 Q64 26 64 34 Q70 35 70 42 Q70 46 62 46 Z" fill="rgba(120,130,155,0.95)" stroke="rgba(100,110,135,0.6)" stroke-width="1.5"/>
+      <polygon points="48,44 38,64 46,64 42,82 60,56 50,56 56,44" fill="#FFD54F" stroke="#FFB300" stroke-width="1"/>
+      <g stroke="#42A5F5" stroke-width="2" stroke-linecap="round">
+        <line x1="28" y1="54" x2="25" y2="66"/>
+        <line x1="66" y1="52" x2="63" y2="64"/>
+      </g>
+    </svg>`,
+  };
+  return svgs[iconKey] || svgs['clear'];
+}
+
+function getSmallWeatherSVG(iconKey, size = 28) {
+  return getWeatherSVG(iconKey, size);
+}
+
+function getTempClass(temp) {
+  if (temp < 10) return 'temp-cold';
+  if (temp < 20) return 'temp-mild';
+  if (temp < 30) return 'temp-warm';
+  return 'temp-hot';
+}
+
+function getWindDirection(degrees) {
+  const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+  const i = Math.round(degrees / 22.5) % 16;
+  return dirs[i];
+}
+
+function getWeatherCodeInfo(code) {
+  return WMO_CODES[code] || { desc: 'Desconocido', icon: 'clear' };
+}
+
+async function saveData(key, value) {
+  try {
+    if (window.ModevI && window.ModevI.db) {
+      await window.ModevI.db.set(key, JSON.stringify(value));
+    }
+  } catch(e) {}
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch(e) {}
+}
+
+async function loadData(key) {
+  try {
+    if (window.ModevI && window.ModevI.db) {
+      const val = await window.ModevI.db.get(key);
+      if (val) return JSON.parse(val);
+    }
+  } catch(e) {}
+  try {
+    const val = localStorage.getItem(key);
+    if (val) return JSON.parse(val);
+  } catch(e) {}
+  return null;
+}
+
+function notify(msg, type) {
+  try {
+    if (window.ModevI && window.ModevI.notify) {
+      window.ModevI.notify.toast(msg, type);
+      return;
+    }
+  } catch(e) {}
+}
+
+function showLoading() {
+  document.getElementById('loadingScreen').classList.remove('hidden');
+  document.getElementById('errorScreen').classList.add('hidden');
+}
+
+function hideLoading() {
+  document.getElementById('loadingScreen').classList.add('hidden');
+}
+
+function showError(msg) {
+  hideLoading();
+  document.getElementById('errorMsg').textContent = msg;
+  document.getElementById('errorScreen').classList.remove('hidden');
+}
+
+function hideError() {
+  document.getElementById('errorScreen').classList.add('hidden');
+}
+
+function renderCurrentWeather(data) {
+  const cw = data.current_weather;
+  const info = getWeatherCodeInfo(cw.weathercode);
+
+  document.getElementById('mainIcon').innerHTML = getWeatherSVG(info.icon, 100);
+  document.getElementById('currentTemp').innerHTML = `${Math.round(cw.temperature)}<span class="unit">°C</span>`;
+  document.getElementById('weatherDesc').textContent = info.desc;
+  document.getElementById('windSpeed').textContent = `${cw.windspeed} km/h`;
+  document.getElementById('windDir').textContent = `${getWindDirection(cw.winddirection)} (${cw.winddirection}°)`;
+}
+
+function renderHourlyForecast(data) {
+  const list = document.getElementById('hourlyList');
+  list.innerHTML = '';
+
+  const times = data.hourly.time;
+  const temps = data.hourly.temperature_2m;
+
+  // Find current hour index
+  const now = new Date();
+  const currentHourStr = now.toISOString().slice(0, 13);
+  let startIdx = 0;
+  for (let i = 0; i < times.length; i++) {
+    if (times[i].startsWith(currentHourStr) || times[i].replace('T', ' ').startsWith(currentHourStr)) {
+      startIdx = i;
+      break;
+    }
+    // Also try matching by comparing
+    const timeDate = new Date(times[i]);
+    if (timeDate.getFullYear() === now.getFullYear() && 
+        timeDate.getMonth() === now.getMonth() && 
+        timeDate.getDate() === now.getDate() && 
+        timeDate.getHours() === now.getHours()) {
+      startIdx = i;
+      break;
+    }
+  }
+
+  // Show next 12 hours
+  const hoursToShow = Math.min(12, times.length - startIdx);
+  const sliceTemps = temps.slice(startIdx, startIdx + hoursToShow);
+  const minT = Math.min(...sliceTemps);
+  const maxT = Math.max(...sliceTemps);
+  const range = maxT - minT || 1;
+
+  for (let i = 0; i < hoursToShow; i++) {
+    const idx = startIdx + i;
+    const t = new Date(times[idx]);
+    const hour = t.getHours().toString().padStart(2, '0') + ':00';
+    const temp = temps[idx];
+    const pct = ((temp - minT) / range) * 100;
+
+    // Simple weather code estimation for hourly (we don't have it per hour from this endpoint, use current)
+    const iconKey = i === 0 ? getWeatherCodeInfo(data.current_weather.weathercode).icon : 
+                    (temp < 5 ? 'snow' : temp > 35 ? 'clear' : 'partly-cloudy');
+
+    const row = document.createElement('div');
+    row.className = 'hour-row' + (i === 0 ? ' current-hour' : '');
+    row.innerHTML = `
+      <span class="hour-time">${i === 0 ? 'Ahora' : hour}</span>
+      <span class="hour-icon">${getSmallWeatherSVG(iconKey, 28)}</span>
+      <div class="hour-bar-container">
+        <div class="hour-bar" style="width: ${Math.max(8, pct)}%"></div>
+      </div>
+      <span class="hour-temp ${getTempClass(temp)}">${Math.round(temp * 10) / 10}°</span>
+    `;
+    list.appendChild(row);
+  }
+}
+
+async function fetchWeather() {
+  const refreshBtn = document.getElementById('refreshBtn');
+  refreshBtn.classList.add('spinning');
+  showLoading();
+  hideError();
+
+  const API_URL = 'https://api.open-meteo.com/v1/forecast?latitude=38.35&longitude=-0.48&current_weather=true&hourly=temperature_2m';
+
+  try {
+    const response = await fetch(API_URL);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+
+    if (!data.current_weather) throw new Error('Datos incompletos');
+
+    renderCurrentWeather(data);
+    renderHourlyForecast(data);
+
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent = 
+      `Última actualización: ${now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+
+    // Save cached data
+    await saveData('weatherio_cache', { data, timestamp: Date.now() });
+
+    hideLoading();
+    hideError();
+    notify('Datos actualizados', 'success');
+
+  } catch (err) {
+    console.error('Weather fetch error:', err);
+    
+    // Try to load cached data
+    const cached = await loadData('weatherio_cache');
+    if (cached && cached.data) {
+      renderCurrentWeather(cached.data);
+      renderHourlyForecast(cached.data);
+      const cacheDate = new Date(cached.timestamp);
+      document.getElementById('lastUpdated').textContent = 
+        `Datos en caché: ${cacheDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+      hideLoading();
+      hideError();
+      notify('Usando datos en caché', 'info');
+    } else {
+      showError('No se pudo conectar con Open-Meteo. Verifica tu conexión a internet.');
+    }
+  } finally {
+    refreshBtn.classList.remove('spinning');
+  }
+}
+
+// Init
+fetchWeather();
+
+// Auto-refresh every 10 minutes
+setInterval(fetchWeather, 10 * 60 * 1000);
+</script>
+</body>
+</html>

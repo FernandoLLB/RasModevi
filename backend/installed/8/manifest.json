@@ -1,0 +1,8 @@
+{
+  "name": "WeatherIO",
+  "version": "1.0.0",
+  "description": "  \"App que muestra el tiempo actual en Alicante usando la API Open-Meteo (https://api.open-meteo.com/v1/forecast?latitude=38.35&longitude=-0.48&current_weather=true&hourly=temperature_2m). Debe hacer fetch\n   a esa URL al cargar, mostrar temperatura actual, velocidad del viento y estado del cielo con iconos SVG inline. Sin librerías externas, todo inline.\"\n",
+  "entry_point": "index.html",
+  "required_hardware": [],
+  "permissions": []
+}
