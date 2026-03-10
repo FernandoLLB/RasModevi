@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { LogIn, LogOut, Code2, Zap, ChevronRight, Store, LayoutGrid } from 'lucide-react'
+import { LogIn, LogOut, Code2, Zap, ChevronRight, Store, LayoutGrid, Sparkles } from 'lucide-react'
 import Logo from '../Logo'
 import { useAuth } from '../../context/AuthContext'
 import { useDevice } from '../../context/DeviceContext'
@@ -11,6 +11,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
 
   const isStore = location.pathname === '/' || location.pathname.startsWith('/app/')
   const isLauncher = location.pathname === '/launcher'
+  const isAI = location.pathname.startsWith('/ai/')
 
   return (
     <header className="sticky top-0 z-50 glass border-b border-white/[0.06]">
@@ -90,14 +91,28 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         {/* User / dev nav */}
         <nav className="flex items-center gap-1">
           {isDeveloper && (
-            <Link
-              to="/developer"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
-              title="Portal Developer"
-            >
-              <Code2 size={14} />
-              <span>Developer</span>
-            </Link>
+            <>
+              <Link
+                to="/ai/create"
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  isAI
+                    ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                    : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+                title="Crear app con IA"
+              >
+                <Sparkles size={14} />
+                <span>Crear con IA</span>
+              </Link>
+              <Link
+                to="/developer"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                title="Portal Developer"
+              >
+                <Code2 size={14} />
+                <span>Developer</span>
+              </Link>
+            </>
           )}
 
           {isAuthenticated ? (

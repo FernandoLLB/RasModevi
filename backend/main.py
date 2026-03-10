@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 
 from database import init_db
 from seed import seed
-from routers import auth, store, developer, admin, device, sdk, hardware, notes, system
+from routers import auth, store, developer, admin, device, sdk, hardware, notes, system, ai
 
 BACKEND_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend" / "dist"
@@ -71,6 +71,7 @@ app.include_router(sdk.router)
 app.include_router(hardware.router)
 app.include_router(notes.router)
 app.include_router(system.router)
+app.include_router(ai.router)
 
 # ---------------------------------------------------------------------------
 # Static file mounts
