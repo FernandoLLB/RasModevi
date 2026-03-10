@@ -1,14 +1,19 @@
 """Device router — install/uninstall/activate apps on the device."""
 from __future__ import annotations
 
+import os
 import shutil
 import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
+
+# If set, ZIPs are downloaded from the store API when not available locally
+STORE_API_URL: str = os.getenv("STORE_API_URL", "").rstrip("/")
 
 from database import get_device_db, get_platform_db
 from models_device import ActivityLog, InstalledApp
@@ -127,6 +132,18 @@ async def install_app(
 
     zip_path = PACKAGES_DIR / str(store_app_id) / "app.zip"
     install_path = INSTALLED_DIR / str(installed.id)
+
+    # Download ZIP from store API if not available locally
+    if not zip_path.exists() and STORE_API_URL:
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                r = await client.get(f"{STORE_API_URL}/api/store/apps/{store_app_id}/package")
+                if r.status_code == 200:
+                    zip_path.parent.mkdir(parents=True, exist_ok=True)
+                    zip_path.write_bytes(r.content)
+        except httpx.HTTPError:
+            pass  # fall through to demo/empty path
+
     if zip_path.exists():
         install_path.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zip_path) as zf:

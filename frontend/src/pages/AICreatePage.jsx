@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import DeviceLayout from '../components/layout/DeviceLayout'
 import { storeApi } from '../api/store'
+import { STORE_BASE } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
 const STEPS = [
@@ -58,7 +59,7 @@ export default function AICreatePage() {
       ...(form.category_id ? { category_id: form.category_id } : {}),
     })
 
-    const es = new EventSource(`/api/ai/create-app?${qs}`)
+    const es = new EventSource(`${STORE_BASE}/api/ai/create-app?${qs}`)
     esRef.current = es
 
     es.onmessage = (e) => {

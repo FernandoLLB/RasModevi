@@ -1,9 +1,11 @@
 """Community store router — browse apps, categories, hardware tags, ratings."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -18,6 +20,9 @@ from schemas import (
     StoreAppDetail,
     StoreAppOut,
 )
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+PACKAGES_DIR = BACKEND_DIR / "store" / "packages"
 
 router = APIRouter(prefix="/api/store", tags=["store"])
 
@@ -85,6 +90,28 @@ async def list_apps(
 
     offset = (page - 1) * limit
     return q.offset(offset).limit(limit).all()
+
+
+@router.get("/apps/{app_id}/package")
+async def download_app_package(app_id: int, db: Session = Depends(get_platform_db)):
+    """Download the ZIP package for an app. Used by device backends to install apps."""
+    app = db.query(StoreApp).filter(StoreApp.id == app_id, StoreApp.status == "published").first()
+    if not app:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": "App not found or not published", "code": "APP_NOT_FOUND"},
+        )
+    zip_path = PACKAGES_DIR / str(app_id) / "app.zip"
+    if not zip_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": "Package not available", "code": "PACKAGE_NOT_FOUND"},
+        )
+    return FileResponse(
+        str(zip_path),
+        media_type="application/zip",
+        filename=f"{app.slug}.zip",
+    )
 
 
 @router.get("/apps/{slug}", response_model=StoreAppDetail)

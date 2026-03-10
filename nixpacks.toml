@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["python311", "nodejs_20"]
+
+[phases.install]
+cmds = [
+  "cd frontend && npm install",
+  "pip install -r backend/requirements.txt"
+]
+
+[phases.build]
+# VITE_STORE_API_URL and VITE_DEVICE_API_URL must be set as Railway env vars
+cmds = ["cd frontend && npm run build"]
+
+[start]
+cmd = "cd backend && uvicorn main_store:app --host 0.0.0.0 --port $PORT"
