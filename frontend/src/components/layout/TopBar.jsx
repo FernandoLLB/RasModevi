@@ -28,7 +28,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <Logo size={26} />
-          <span className="text-sm font-bold tracking-tight gradient-text">ModevI</span>
+          <span className="text-sm font-bold tracking-tight gradient-text hidden sm:block">ModevI</span>
         </Link>
 
         {/* Main nav tabs — always visible */}

@@ -41,8 +41,8 @@ export default function FeaturedBanner({ app }) {
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex sm:flex-col gap-2 w-full sm:w-auto shrink-0">
+        {/* Action buttons — always stacked vertically */}
+        <div className="flex flex-col gap-2 w-full sm:w-auto shrink-0">
           <InstallButton storeApp={app} size="md" fullWidth />
           <Link
             to={`/app/${app.slug}`}

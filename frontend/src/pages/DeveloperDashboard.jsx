@@ -41,7 +41,7 @@ export default function DeveloperDashboard() {
           <Code2 size={40} className="text-slate-600 mx-auto mb-4" />
           <h2 className="text-lg font-bold mb-2">Portal Developer</h2>
           <p className="text-slate-400 text-sm mb-6">Necesitas una cuenta de developer para acceder a esta sección.</p>
-          <Link to="/register" className="px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 font-medium text-sm transition-colors">
+          <Link to="/register" className="px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 font-semibold text-sm transition-colors inline-flex items-center min-h-[48px]">
             Crear cuenta developer
           </Link>
         </div>
@@ -51,7 +51,7 @@ export default function DeveloperDashboard() {
 
   return (
     <DeviceLayout hideSearch>
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>

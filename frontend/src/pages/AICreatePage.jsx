@@ -110,7 +110,7 @@ export default function AICreatePage() {
 
   return (
     <DeviceLayout hideSearch>
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
 
         {/* ── Header ── */}
         <div className="flex items-center gap-3 mb-6">
@@ -289,13 +289,13 @@ export default function AICreatePage() {
                 <div className="flex gap-2 flex-wrap">
                   <Link
                     to={`/app/${resultApp.slug}`}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-medium hover:bg-emerald-500/30 transition-colors"
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-medium hover:bg-emerald-500/30 transition-colors min-h-[48px]"
                   >
                     Ver en tienda <ChevronRight size={14} />
                   </Link>
                   <Link
                     to="/developer"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-400 text-sm font-medium hover:text-white hover:bg-white/[0.06] transition-colors"
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-400 text-sm font-medium hover:text-white hover:bg-white/[0.06] transition-colors min-h-[48px]"
                   >
                     Panel developer
                   </Link>
@@ -307,7 +307,7 @@ export default function AICreatePage() {
             {(phase === 'done' || phase === 'error') && (
               <button
                 onClick={reset}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-400 text-sm font-medium hover:text-white hover:bg-white/[0.06] transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-400 text-sm font-medium hover:text-white hover:bg-white/[0.06] transition-colors min-h-[48px]"
               >
                 <RotateCcw size={14} />
                 Crear otra app

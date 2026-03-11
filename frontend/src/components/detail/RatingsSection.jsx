@@ -59,8 +59,8 @@ export default function RatingsSection({ app, ratings, onRatingAdded }) {
       </h2>
 
       {ratings?.length > 0 && (
-        <div className="flex gap-8 mb-6 p-4 card">
-          <div className="text-center">
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 p-4 card">
+          <div className="text-center sm:text-left shrink-0">
             <div className="text-4xl font-bold mono gradient-text">{app.avg_rating?.toFixed(1) || '—'}</div>
             <RatingStars rating={app.avg_rating} size={13} />
             <p className="text-xs text-slate-500 mt-1">{ratings.length} reseñas</p>
@@ -72,21 +72,21 @@ export default function RatingsSection({ app, ratings, onRatingAdded }) {
       )}
 
       {isAuthenticated && (
-        <div className="card p-4 mb-6">
+        <div className="card p-4 sm:p-5 mb-6">
           <p className="text-sm font-medium mb-3">Tu valoración</p>
-          <RatingStars rating={myRating} interactive onChange={setMyRating} size={20} />
+          <RatingStars rating={myRating} interactive onChange={setMyRating} size={24} />
           <textarea
             value={comment}
             onChange={e => setComment(e.target.value)}
             placeholder="Escribe un comentario (opcional)..."
             rows={3}
-            className="w-full mt-3 bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 resize-none"
+            className="w-full mt-3 bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 resize-none min-h-[52px]"
           />
           {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
           <button
             onClick={submit}
             disabled={!myRating || submitting}
-            className="mt-3 px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-sm font-semibold transition-colors cursor-pointer"
+            className="mt-3 w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-sm font-semibold transition-colors cursor-pointer min-h-[48px]"
           >
             {submitting ? 'Enviando...' : 'Enviar valoración'}
           </button>

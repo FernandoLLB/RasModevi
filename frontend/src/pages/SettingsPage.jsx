@@ -40,7 +40,7 @@ export default function SettingsPage() {
 
   return (
     <DeviceLayout hideSearch>
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center gap-3 mb-6">
           <Settings size={20} className="text-slate-400" />
           <h1 className="text-lg font-bold">Ajustes del dispositivo</h1>
@@ -71,8 +71,7 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Sensores registrados</h2>
             <button
               onClick={() => {/* TODO: open sensor register modal */}}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors cursor-pointer"
-              style={{ background: 'none', border: 'none' }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors cursor-pointer min-h-[44px]"
             >
               <Plus size={15} /> Añadir sensor
             </button>
@@ -104,7 +103,7 @@ export default function SettingsPage() {
                 key={path}
                 onClick={() => navigate(path)}
                 className="w-full flex items-center justify-between px-4 py-4 hover:bg-white/[0.04] transition-colors cursor-pointer min-h-[52px]"
-                style={{ background: 'none', border: 'none', textAlign: 'left' }}
+                style={{ textAlign: 'left' }}
               >
                 <span className="text-sm font-medium text-slate-300">{label}</span>
                 <ChevronRight size={16} className="text-slate-500" />

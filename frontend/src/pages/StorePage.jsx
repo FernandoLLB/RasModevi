@@ -97,12 +97,11 @@ export default function StorePage() {
               <FeaturedBanner app={featured} />
             )}
 
-            {/* Desktop: app count + sort */}
-            <div className="hidden xl:flex items-center justify-between mb-4">
+            {/* Desktop: app count (sort is in sidebar) */}
+            <div className="hidden xl:block mb-4">
               <p className="text-sm text-slate-500">
                 {loading ? 'Cargando…' : `${apps.length} apps`}
               </p>
-              {sortSelect()}
             </div>
 
             <AppGrid apps={apps} loading={loading} />

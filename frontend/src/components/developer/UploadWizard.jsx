@@ -62,13 +62,13 @@ export default function UploadWizard({ onSuccess }) {
           <div>
             <label className="block text-xs text-slate-400 mb-1.5">Nombre *</label>
             <input value={form.name} onChange={e => setField('name', e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors" />
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors min-h-[48px]" />
           </div>
           <div>
             <label className="block text-xs text-slate-400 mb-1.5">Descripción corta *</label>
             <input value={form.description} onChange={e => setField('description', e.target.value)}
               maxLength={500}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors" />
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors min-h-[48px]" />
           </div>
           <div>
             <label className="block text-xs text-slate-400 mb-1.5">Descripción larga</label>
@@ -80,7 +80,7 @@ export default function UploadWizard({ onSuccess }) {
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Versión</label>
               <input value={form.version} onChange={e => setField('version', e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors" />
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors min-h-[48px]" />
             </div>
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Categoría</label>
@@ -95,7 +95,7 @@ export default function UploadWizard({ onSuccess }) {
 
           {error && <p className="flex items-center gap-2 text-red-400 text-sm"><AlertCircle size={14} />{error}</p>}
           <button onClick={handleCreate} disabled={loading}
-            className="w-full py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 font-semibold transition-colors cursor-pointer">
+            className="w-full py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 active:scale-[0.98] disabled:opacity-50 font-semibold transition-all cursor-pointer min-h-[48px]">
             {loading ? 'Creando...' : 'Continuar →'}
           </button>
         </div>
@@ -127,7 +127,7 @@ export default function UploadWizard({ onSuccess }) {
 
           {error && <p className="flex items-center gap-2 text-red-400 text-sm"><AlertCircle size={14} />{error}</p>}
           <button onClick={handleUpload} disabled={loading || !file}
-            className="w-full py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 font-semibold transition-colors cursor-pointer">
+            className="w-full py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 active:scale-[0.98] disabled:opacity-50 font-semibold transition-all cursor-pointer min-h-[48px]">
             {loading ? 'Subiendo...' : 'Subir paquete →'}
           </button>
         </div>

@@ -89,6 +89,11 @@ body::before {
 @keyframes spin-slow {
   to { transform: rotate(360deg); }
 }
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
 
 .animate-fade-up   { animation: fade-up 0.35s ease both; }
 .animate-fade-in   { animation: fade-in 0.25s ease both; }

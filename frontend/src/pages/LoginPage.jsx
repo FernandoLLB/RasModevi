@@ -26,6 +26,8 @@ export default function LoginPage() {
     }
   }
 
+  const inputClass = 'w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 transition-all min-h-[48px]'
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
@@ -35,14 +37,14 @@ export default function LoginPage() {
           <p className="text-sm text-slate-500 mt-1">Inicia sesión para continuar</p>
         </div>
 
-        <form onSubmit={submit} className="card p-6 flex flex-col gap-4">
+        <form onSubmit={submit} className="card p-5 sm:p-6 flex flex-col gap-4">
           <div>
             <label className="block text-xs text-slate-400 mb-1.5">Usuario</label>
             <input
               value={form.username}
               onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
               autoComplete="username"
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/60 transition-colors"
+              className={inputClass}
             />
           </div>
           <div>
@@ -52,20 +54,20 @@ export default function LoginPage() {
               value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
               autoComplete="current-password"
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/60 transition-colors"
+              className={inputClass}
             />
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">
-              <AlertCircle size={14} /> {error}
+            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 px-4 py-3 rounded-xl border border-red-500/20">
+              <AlertCircle size={14} className="shrink-0" /> {error}
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 active:scale-[0.98] disabled:opacity-50 font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[48px]"
           >
             <LogIn size={16} />
             {loading ? 'Entrando...' : 'Iniciar sesión'}
