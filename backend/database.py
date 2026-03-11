@@ -15,10 +15,9 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 # Connection URLs  (override via environment variables)
 # ---------------------------------------------------------------------------
 
-PLATFORM_DB_URL: str = os.getenv(
-    "PLATFORM_DB_URL",
-    "postgresql://modevi_user:modevi_pass@localhost/modevi",
-)
+PLATFORM_DB_URL: str | None = os.getenv("PLATFORM_DB_URL")
+if not PLATFORM_DB_URL:
+    raise RuntimeError("PLATFORM_DB_URL environment variable is not set")
 
 _device_db_path: str = os.getenv(
     "DEVICE_DB_PATH",

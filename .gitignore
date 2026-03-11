@@ -5,6 +5,7 @@ node_modules/
 dist/
 .env
 *.log
+CLAUDE.md
 
 # App packages and installed files (device-local, not for git)
 backend/installed/*/
