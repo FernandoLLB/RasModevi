@@ -12,6 +12,7 @@ from typing import AsyncGenerator
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import r2
@@ -767,7 +768,14 @@ async def _stream(
         status="published",  # AI-generated apps go live immediately
     )
     db.add(store_app)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        slug = f"{slug}-{os.urandom(3).hex()}"
+        store_app.slug = slug
+        db.add(store_app)
+        db.commit()
     db.refresh(store_app)
 
     # Upload ZIP to R2
