@@ -63,7 +63,7 @@ export default function AppRunnerPage() {
         className="w-full h-full border-0"
         title={app.store_app?.name || 'App'}
         allow="fullscreen"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-downloads"
       />
 
       {/* Back + fullscreen buttons overlay — touch-friendly */}
