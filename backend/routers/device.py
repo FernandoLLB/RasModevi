@@ -136,7 +136,7 @@ async def install_app(
     # Download ZIP from store API if not available locally
     if not zip_path.exists() and STORE_API_URL:
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
                 r = await client.get(f"{STORE_API_URL}/api/store/apps/{store_app_id}/package")
                 if r.status_code == 200:
                     zip_path.parent.mkdir(parents=True, exist_ok=True)
