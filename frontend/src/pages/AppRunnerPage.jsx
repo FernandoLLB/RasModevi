@@ -66,11 +66,6 @@ export default function AppRunnerPage() {
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
       />
 
-      <script
-        src={`${DEVICE_BASE}/api/sdk/app/${app_id}/sdk.js`}
-        onLoad={() => console.log('ModevI SDK loaded')}
-      />
-
       {/* Back button overlay — touch-friendly */}
       <div
         className={`fixed top-0 left-0 p-3 sm:p-4 transition-opacity duration-500 ${showBack ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
