@@ -537,6 +537,42 @@ Para APIs que requieren key: escribe el código con `const API_KEY = 'TU_API_KEY
 
 ---
 
+## CONTROLES DE CÁMARA 3D
+
+> ⚠️ La app corre dentro de un **iframe con sandbox**. `requestPointerLock()` puede fallar en algunos navegadores de escritorio aunque esté permitido. Usa siempre **drag-to-look como método principal** y pointer lock como mejora opcional encima.
+
+```javascript
+// ── DRAG TO LOOK (método principal — funciona en iframe, móvil y escritorio) ──
+canvas.addEventListener('mousedown', () => { state.dragging = true; });
+canvas.addEventListener('mouseup',   () => { state.dragging = false; });
+canvas.addEventListener('mouseleave',() => { state.dragging = false; });
+canvas.addEventListener('mousemove', (e) => {
+  if (state.pointerLocked) return; // pointer lock tiene prioridad si está activo
+  if (!state.dragging || !state.gameRunning) return;
+  state.cameraYaw   -= e.movementX * 0.002;
+  state.cameraPitch -= e.movementY * 0.002;
+  state.cameraPitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, state.cameraPitch));
+});
+
+// ── POINTER LOCK (mejora opcional — captura el cursor para FPS fluido) ──
+canvas.addEventListener('click', () => {
+  if (state.gameRunning) canvas.requestPointerLock?.(); // sin restricción de resolución
+});
+document.addEventListener('pointerlockchange', () => {
+  state.pointerLocked = document.pointerLockElement === canvas;
+});
+document.addEventListener('mousemove', (e) => {
+  if (!state.pointerLocked || !state.gameRunning) return;
+  state.cameraYaw   -= e.movementX * 0.002;
+  state.cameraPitch -= e.movementY * 0.002;
+  state.cameraPitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, state.cameraPitch));
+});
+```
+
+**NUNCA** pongas `requestPointerLock` condicionado a `window.innerWidth >= 1024` ni similar.
+
+---
+
 ## INTERACCIÓN TÁCTIL
 
 La pantalla es táctil capacitiva. El usuario usa dedos, no ratón.

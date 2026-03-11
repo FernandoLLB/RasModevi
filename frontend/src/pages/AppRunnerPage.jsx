@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Maximize2 } from 'lucide-react'
 import { deviceApi } from '../api/device'
 import { DEVICE_BASE } from '../api/client'
 import { useDevice } from '../context/DeviceContext'
@@ -66,9 +66,9 @@ export default function AppRunnerPage() {
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"
       />
 
-      {/* Back button overlay — touch-friendly */}
+      {/* Back + fullscreen buttons overlay — touch-friendly */}
       <div
-        className={`fixed top-0 left-0 p-3 sm:p-4 transition-opacity duration-500 ${showBack ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed top-0 left-0 p-3 sm:p-4 flex items-center gap-2 transition-opacity duration-500 ${showBack ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       >
         <button
           onClick={() => navigate('/launcher')}
@@ -77,6 +77,16 @@ export default function AppRunnerPage() {
           <ArrowLeft size={18} />
           <span className="hidden sm:block">Launcher</span>
         </button>
+        <a
+          href={appUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-4 py-3 rounded-xl glass text-sm text-slate-200 hover:text-white transition-all cursor-pointer min-h-[48px] shadow-xl"
+          title="Abrir en ventana completa"
+        >
+          <Maximize2 size={18} />
+          <span className="hidden sm:block">Ventana</span>
+        </a>
       </div>
 
       {/* Toast notification */}
