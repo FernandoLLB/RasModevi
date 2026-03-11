@@ -122,6 +122,168 @@ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-seri
 
 ---
 
+## ROBUSTEZ Y MANEJO DE ERRORES — OBLIGATORIO
+
+Toda app DEBE ser resistente a fallos. Un error JS no puede dejar la pantalla en negro.
+
+### 1. Handler global de errores (incluir siempre al inicio del script)
+```javascript
+// Captura cualquier error no manejado y lo muestra en pantalla
+window.onerror = function(msg, src, line, col, err) {
+  const overlay = document.getElementById('__error_overlay__');
+  if (overlay) {
+    overlay.textContent = '⚠ Error: ' + msg + (line ? ' (línea ' + line + ')' : '');
+    overlay.style.display = 'block';
+  }
+  return true; // evita que el error suba más
+};
+window.onunhandledrejection = function(e) {
+  const overlay = document.getElementById('__error_overlay__');
+  if (overlay) {
+    overlay.textContent = '⚠ Error: ' + (e.reason?.message || String(e.reason));
+    overlay.style.display = 'block';
+  }
+};
+```
+
+### 2. Overlay de error (incluir siempre en el HTML, antes de cerrar `</body>`)
+```html
+<div id="__error_overlay__" style="
+  display:none; position:fixed; bottom:0; left:0; right:0;
+  background:#7f1d1d; color:#fecaca; padding:8px 12px;
+  font-size:12px; font-family:monospace; z-index:9999;
+  border-top:1px solid #ef4444;
+"></div>
+```
+
+### 3. Acceso null-safe al DOM
+Nunca accedas a un elemento del DOM sin verificar que existe:
+```javascript
+// MAL — puede crashear si el elemento no está en el HTML
+document.getElementById('miBoton').addEventListener(...)
+
+// BIEN — null-safe
+const btn = document.getElementById('miBoton');
+if (btn) btn.addEventListener('click', handler);
+
+// O con optional chaining
+document.getElementById('miBoton')?.addEventListener('click', handler);
+```
+
+### 4. Try/catch en todas las operaciones asíncronas
+```javascript
+// Cualquier await debe tener try/catch o .catch()
+try {
+  const data = await fetchData(url);
+  if (data) renderizar(data);
+} catch (err) {
+  mostrarEstado('Error al cargar datos: ' + err.message);
+}
+```
+
+---
+
+## GESTIÓN DE ESTADO — PATRÓN OBLIGATORIO
+
+Todo el estado mutable de la app debe vivir en UN único objeto `state`. Nunca variables globales sueltas.
+
+```javascript
+// BIEN: estado centralizado
+const state = {
+  puntuacion: 0,
+  nivel: 1,
+  intervaloId: null,
+  animFrameId: null,
+  datos: [],
+  cargando: false,
+};
+
+// MAL: variables globales dispersas
+let puntuacion = 0;
+let nivel = 1;
+let intervalo;
+```
+
+---
+
+## GESTIÓN DE TIMERS E INTERVALOS — CRÍTICO
+
+Los timers mal gestionados son la causa #1 de bugs en apps embebidas.
+
+```javascript
+// REGLA: guarda SIEMPRE el ID. Limpia el anterior antes de crear uno nuevo.
+
+// setInterval
+function iniciarPolling() {
+  if (state.intervaloId) clearInterval(state.intervaloId);  // ← limpiar primero
+  state.intervaloId = setInterval(actualizarDatos, 5000);
+}
+
+// setTimeout
+function programarSiguiente() {
+  if (state.timeoutId) clearTimeout(state.timeoutId);
+  state.timeoutId = setTimeout(siguiente, 1000);
+}
+
+// requestAnimationFrame
+function iniciarAnimacion() {
+  if (state.animFrameId) cancelAnimationFrame(state.animFrameId);
+  function loop() {
+    renderizar();
+    state.animFrameId = requestAnimationFrame(loop);
+  }
+  state.animFrameId = requestAnimationFrame(loop);
+}
+
+// Pausar cuando la pestaña/app no está visible (ahorra CPU)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (state.intervaloId) { clearInterval(state.intervaloId); state.intervaloId = null; }
+    if (state.animFrameId) { cancelAnimationFrame(state.animFrameId); state.animFrameId = null; }
+  } else {
+    iniciarPolling();      // reanudar al volver
+    iniciarAnimacion();
+  }
+});
+```
+
+---
+
+## FETCH CON TIMEOUT Y MANEJO DE ERRORES
+
+```javascript
+async function fetchData(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
+    throw err;
+  }
+}
+
+// Uso con manejo completo:
+async function cargarDatos() {
+  mostrarEstado('Cargando...');
+  try {
+    const data = await fetchData('https://api.ejemplo.com/datos');
+    renderizar(data);
+    mostrarEstado('');
+  } catch (err) {
+    mostrarEstado('Sin conexión — reintentando en 30s');
+    if (state.retryId) clearTimeout(state.retryId);
+    state.retryId = setTimeout(cargarDatos, 30000);
+  }
+}
+```
+
+---
+
 ## MODEVI SDK (window.ModevI)
 
 Disponible dentro del iframe. **Siempre envuelve en try/catch** con fallback a localStorage.
@@ -149,22 +311,15 @@ async function cargar(key) {
 ### Información del sistema
 ```javascript
 const info = await window.ModevI.system.getInfo();
-// Devuelve:
-// {
-//   hostname, platform,
-//   cpu_percent,           // 0-100
-//   temperature,           // °C (puede ser null si no hay sensor)
+// { hostname, platform, cpu_percent, temperature (°C|null),
 //   memory: { used_mb, total_mb, percent },
-//   disk: { used_gb, total_gb, percent },
-//   uptime                 // segundos
-// }
+//   disk: { used_gb, total_gb, percent }, uptime }
 ```
 
 ### Notificaciones toast
 ```javascript
 window.ModevI.notify.toast('Guardado correctamente', 'success');
 // Tipos: 'info' | 'success' | 'warning' | 'error'
-// Duración: 3 segundos automático
 ```
 
 ### Hardware GPIO y sensores (solo si el usuario lo pide explícitamente)
@@ -178,8 +333,6 @@ await window.ModevI.hardware.writeGPIO(17, 1);                  // 0 o 1
 
 ## APIS EXTERNAS — RECOMENDADAS SIN API KEY
 
-Cuando la app necesite datos externos, usa APIs públicas que no requieren registro:
-
 | Tipo | URL | Notas |
 |------|-----|-------|
 | Clima actual | `https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true` | Sin key, CORS OK |
@@ -189,25 +342,7 @@ Cuando la app necesite datos externos, usa APIs públicas que no requieren regis
 | Chiste aleatorio | `https://official-joke-api.appspot.com/jokes/random` | Sin key |
 | Hora mundial | `https://worldtimeapi.org/api/ip` | Sin key |
 
-Para APIs que requieren key: escribe el código con un placeholder `const API_KEY = 'TU_API_KEY_AQUI'` visible y comentado.
-
-### Patrón de fetch con loading/error
-```javascript
-async function fetchData(url) {
-  mostrarLoading(true);
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    mostrarLoading(false);
-    return data;
-  } catch(err) {
-    mostrarLoading(false);
-    mostrarError(err.message);
-    return null;
-  }
-}
-```
+Para APIs que requieren key: escribe el código con `const API_KEY = 'TU_API_KEY_AQUI'` visible.
 
 ---
 
@@ -223,56 +358,74 @@ document.addEventListener('touchmove', e => {
 
 // Swipe detection
 let startX, startY;
-el.addEventListener('touchstart', e => {
-  startX = e.touches[0].clientX;
-  startY = e.touches[0].clientY;
-});
+el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; });
 el.addEventListener('touchend', e => {
   const dx = e.changedTouches[0].clientX - startX;
-  const dy = e.changedTouches[0].clientY - startY;
   if (Math.abs(dx) > 50) dx > 0 ? onSwipeRight() : onSwipeLeft();
 });
 
 // Multi-touch (instrumentos, juegos)
 const activos = new Map();
-el.addEventListener('touchstart', e => {
-  e.preventDefault();
-  [...e.changedTouches].forEach(t => activos.set(t.identifier, t));
-});
-el.addEventListener('touchend', e => {
-  [...e.changedTouches].forEach(t => activos.delete(t.identifier));
-});
+el.addEventListener('touchstart', e => { e.preventDefault(); [...e.changedTouches].forEach(t => activos.set(t.identifier, t)); });
+el.addEventListener('touchend',   e => { [...e.changedTouches].forEach(t => activos.delete(t.identifier)); });
 ```
 
 ---
 
 ## RENDIMIENTO EN RASPBERRY PI 5
 
-- Usa `requestAnimationFrame` para animaciones (nunca `setInterval` para render).
-- Cachea referencias DOM: `const el = document.getElementById('x')` una vez.
-- Para Canvas: usa `devicePixelRatio` para nitidez en pantallas HiDPI.
-- Evita recalcular layouts en cada frame — usa CSS transforms (`translate`, `scale`) en lugar de cambiar `top`/`left`.
-- `backdrop-filter: blur()` es caro: úsalo solo en elementos estáticos.
-- Imágenes: usa SVG inline o Canvas. No uses `<img>` con URLs externas para UI crítica.
+- Usa `requestAnimationFrame` para animaciones (NUNCA `setInterval` para render visual).
+- Cachea referencias DOM: `const el = document.getElementById('x')` una sola vez, al inicio.
+- Para Canvas: ajusta con `devicePixelRatio` para nitidez en pantallas HiDPI.
+- Usa CSS transforms (`translate`, `scale`) en lugar de cambiar `top`/`left`.
+- `backdrop-filter: blur()` es costoso: solo en elementos estáticos.
+- Imágenes: usa SVG inline o Canvas. Evita `<img>` con URLs externas para UI crítica.
+- Web Audio API: el `AudioContext` necesita un gesto del usuario para iniciar. Créalo en el primer click/touch.
 
 ---
 
 ## PATRONES PROBADOS EN EL SISTEMA
 
-Estas técnicas funcionan en producción en ModevI:
-
-- **Canvas 2D** para gráficas de CPU, juegos (Snake), visualizaciones en tiempo real.
+- **Canvas 2D** para gráficas de CPU, juegos, visualizaciones en tiempo real.
 - **SVG inline** para iconos, relojes analógicos, gauges circulares.
-- **Web Audio API** (`AudioContext`, `OscillatorNode`) para sonidos y música — funciona sin permisos.
-- **`setInterval`** para polling de datos (sensores, clima) cada N segundos.
+- **Web Audio API** (`AudioContext`, `OscillatorNode`) para sonidos — funciona sin permisos extra.
 - **Modales overlay** para configuración, game over, confirmaciones — `position: fixed; inset: 0`.
 - **CSS Grid** para layouts de teclados, dashboards, grids de botones.
 
 ---
 
+## BUGS COMUNES A EVITAR — LISTA EXPLÍCITA
+
+1. **NO** uses variables globales sueltas — todo en `state = {}`
+2. **NO** crees un `setInterval` sin guardar su ID y limpiar el anterior
+3. **NO** accedas a `element.property` sin verificar que `element !== null`
+4. **NO** hagas `await` sin `try/catch` o `.catch()`
+5. **NO** uses `innerHTML` con datos externos sin sanitizar (XSS)
+6. **NO** inicies `AudioContext` fuera de un evento de usuario (el navegador lo bloqueará)
+7. **NO** dejes `fetch()` sin timeout — puede quedar colgado indefinidamente
+8. **NO** mezcles `async/await` con callbacks sin sincronizar el orden
+9. **NO** olvides limpiar timers cuando el usuario navega fuera (`visibilitychange`)
+10. **NO** uses `document.write()` ni `eval()` — bloquean el render y son inseguros
+
+---
+
 ## IDIOMA
 
-Genera toda la interfaz de usuario en **español (es-ES)** salvo que el usuario indique otro idioma. Usa caracteres Unicode correctos (á, é, í, ó, ú, ñ, ¿, ¡).
+Genera toda la interfaz en **español (es-ES)** salvo que el usuario indique otro idioma. Usa Unicode correcto (á, é, í, ó, ú, ñ, ¿, ¡).
+
+---
+
+## CHECKLIST MENTAL ANTES DE ESCRIBIR EL CÓDIGO
+
+Antes de generar el HTML, verifica mentalmente:
+- [ ] ¿Tengo el handler global `window.onerror` y el overlay de error?
+- [ ] ¿Todo el estado está en un objeto `state = {}`?
+- [ ] ¿Cada `setInterval`/`setTimeout`/`rAF` guarda su ID en `state` y limpia el anterior?
+- [ ] ¿Cada `await` tiene `try/catch`?
+- [ ] ¿Cada acceso al DOM usa null-check o optional chaining?
+- [ ] ¿Los `fetch()` tienen timeout con `AbortController`?
+- [ ] ¿La app funciona visualmente aunque fallen las llamadas de red?
+- [ ] ¿El layout no desborda los 800×480px en ningún caso?
 
 ---
 
@@ -294,6 +447,13 @@ Genera toda la interfaz de usuario en **español (es-ES)** salvo que el usuario 
       --text: #e2e8f0;
       --text-muted: #94a3b8;
       --accent: #6366f1;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --fs-xl: clamp(20px, 3.5vw, 40px);
+      --fs-lg: clamp(16px, 2.5vw, 28px);
+      --fs-md: clamp(13px, 1.6vw, 18px);
+      --fs-sm: clamp(11px, 1.2vw, 14px);
     }
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -306,15 +466,52 @@ Genera toda la interfaz de usuario en **español (es-ES)** salvo que el usuario 
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
-    /* header, main, footer aquí */
+    .btn {
+      min-height: 44px; min-width: 44px;
+      padding: 10px 20px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text); font-size: var(--fs-md);
+      cursor: pointer; transition: all 0.15s ease;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(0.93); filter: brightness(1.3); }
+    /* Estilos específicos de la app aquí */
   </style>
 </head>
 <body>
-  <!-- HTML aquí -->
+  <!-- HTML de la app aquí -->
+
+  <!-- Overlay de error — no eliminar -->
+  <div id="__error_overlay__" style="
+    display:none; position:fixed; bottom:0; left:0; right:0;
+    background:#7f1d1d; color:#fecaca; padding:8px 12px;
+    font-size:12px; font-family:monospace; z-index:9999;
+    border-top:1px solid #ef4444;
+  "></div>
+
   <script>
     'use strict';
 
-    // Helpers SDK
+    // ── Error handlers globales ──────────────────────────────────────────
+    window.onerror = function(msg, src, line, col, err) {
+      const o = document.getElementById('__error_overlay__');
+      if (o) { o.textContent = '⚠ ' + msg + (line ? ' (l.' + line + ')' : ''); o.style.display = 'block'; }
+      return true;
+    };
+    window.onunhandledrejection = function(e) {
+      const o = document.getElementById('__error_overlay__');
+      if (o) { o.textContent = '⚠ ' + (e.reason?.message || String(e.reason)); o.style.display = 'block'; }
+    };
+
+    // ── Estado centralizado ──────────────────────────────────────────────
+    const state = {
+      // IDs de timers (obligatorio guardarlos aquí)
+      intervaloId: null,
+      animFrameId: null,
+      // Estado de la app
+    };
+
+    // ── Helpers SDK ──────────────────────────────────────────────────────
     async function guardar(key, val) {
       const v = typeof val === 'string' ? val : JSON.stringify(val);
       try { await window.ModevI?.db?.set(key, v); } catch(e) {}
@@ -325,6 +522,23 @@ Genera toda la interfaz de usuario en **español (es-ES)** salvo que el usuario 
       return localStorage.getItem(key);
     }
 
+    // ── Fetch con timeout ────────────────────────────────────────────────
+    async function fetchData(url, ms = 8000) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), ms);
+      try {
+        const res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+      } catch(err) {
+        clearTimeout(t);
+        if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
+        throw err;
+      }
+    }
+
+    // ── Inicialización ───────────────────────────────────────────────────
     async function init() {
       // Lógica principal aquí
     }
@@ -371,7 +585,7 @@ async def _stream(
     try:
         async with client.messages.stream(
             model="claude-opus-4-6",
-            max_tokens=32000,
+            max_tokens=32768,
             system=SYSTEM_PROMPT,
             messages=[
                 {
