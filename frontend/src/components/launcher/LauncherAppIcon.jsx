@@ -9,26 +9,37 @@ function AppIconVisual({ app, size }) {
   const color = colors[(app.store_app?.name?.charCodeAt(0) || 0) % colors.length]
   const name = app.store_app?.name || '?'
 
+  const fallbackStyle = {
+    width: size, height: size,
+    background: `linear-gradient(135deg, ${color}, ${color}aa)`,
+    fontSize: size * 0.4,
+    boxShadow: `0 4px 20px ${color}40`,
+  }
+
   if (app.store_app?.icon_path) {
     return (
-      <img
-        src={app.store_app.icon_path}
-        alt={name}
-        className="rounded-2xl object-cover"
-        style={{ width: size, height: size }}
-      />
+      <div style={{ width: size, height: size, position: 'relative' }}>
+        <img
+          src={app.store_app.icon_path}
+          alt={name}
+          className="rounded-2xl object-cover"
+          style={{ width: size, height: size }}
+          onError={e => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex' }}
+        />
+        <div
+          className="rounded-2xl items-center justify-center font-bold text-white shadow-lg"
+          style={{ ...fallbackStyle, display: 'none', position: 'absolute', top: 0, left: 0 }}
+        >
+          {name[0].toUpperCase()}
+        </div>
+      </div>
     )
   }
 
   return (
     <div
       className="rounded-2xl flex items-center justify-center font-bold text-white shadow-lg"
-      style={{
-        width: size, height: size,
-        background: `linear-gradient(135deg, ${color}, ${color}aa)`,
-        fontSize: size * 0.4,
-        boxShadow: `0 4px 20px ${color}40`,
-      }}
+      style={fallbackStyle}
     >
       {name[0].toUpperCase()}
     </div>

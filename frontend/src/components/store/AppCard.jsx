@@ -4,25 +4,32 @@ import HardwareBadge from './HardwareBadge'
 import InstallButton from './InstallButton'
 
 function AppIcon({ app, size = 56 }) {
-  if (app.icon_path) {
-    return (
-      <img
-        src={app.icon_path}
-        alt={app.name}
-        className="rounded-xl object-cover"
-        style={{ width: size, height: size }}
-        onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
-      />
-    )
-  }
   const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4', '#f97316']
   const color = colors[(app.name?.charCodeAt(0) || 0) % colors.length]
-  return (
+  const fallback = (
     <div
       className="rounded-xl flex items-center justify-center font-bold text-white/90 shrink-0"
       style={{ width: size, height: size, background: `linear-gradient(135deg, ${color}cc, ${color}88)`, fontSize: size * 0.4 }}
     >
       {app.name?.[0]?.toUpperCase() || '?'}
+    </div>
+  )
+  if (!app.icon_path) return fallback
+  return (
+    <div style={{ width: size, height: size, position: 'relative' }} className="shrink-0">
+      <img
+        src={app.icon_path}
+        alt={app.name}
+        className="rounded-xl object-cover"
+        style={{ width: size, height: size }}
+        onError={e => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex' }}
+      />
+      <div
+        className="rounded-xl items-center justify-center font-bold text-white/90"
+        style={{ width: size, height: size, background: `linear-gradient(135deg, ${color}cc, ${color}88)`, fontSize: size * 0.4, display: 'none', position: 'absolute', top: 0, left: 0 }}
+      >
+        {app.name?.[0]?.toUpperCase() || '?'}
+      </div>
     </div>
   )
 }

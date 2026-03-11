@@ -31,6 +31,7 @@ BACKEND_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend" / "dist"
 STORE_DIR = BACKEND_DIR / "store"
 INSTALLED_DIR = BACKEND_DIR / "installed"
+APPS_DIR = BACKEND_DIR / "apps"
 
 
 def _migrate():
@@ -79,6 +80,10 @@ app.include_router(ai.router)
 # Store assets (icons, packages metadata)
 if STORE_DIR.exists():
     app.mount("/store", StaticFiles(directory=str(STORE_DIR)), name="store")
+
+# Demo apps assets (icons referenced in seed.py as /apps/{slug}/icon.svg)
+if APPS_DIR.exists():
+    app.mount("/apps", StaticFiles(directory=str(APPS_DIR), html=True), name="apps")
 
 # Frontend SPA — must be last
 if FRONTEND_DIR.exists():
