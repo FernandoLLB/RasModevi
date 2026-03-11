@@ -237,7 +237,7 @@ class PWMReadOut(BaseModel):
 class I2CReadOut(BaseModel):
     bus: int
     address: int
-    register: int
+    register: int  # noqa: shadows BaseModel.register (non-functional warning)
     data: list[int]
 
 

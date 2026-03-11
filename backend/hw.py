@@ -106,12 +106,15 @@ async def _init_camera() -> Any:
     global _camera
     async with _camera_lock:
         if _camera is None and CAMERA_AVAILABLE:
-            cam = Picamera2()
-            config = cam.create_still_configuration(main={"size": (1280, 720)})
-            cam.configure(config)
-            cam.start()
-            _camera = cam
-            log.info("Camera initialised: %s", cam.camera_properties.get("Model", "unknown"))
+            try:
+                cam = Picamera2()
+                config = cam.create_still_configuration(main={"size": (1280, 720)})
+                cam.configure(config)
+                cam.start()
+                _camera = cam
+                log.info("Camera initialised: %s", cam.camera_properties.get("Model", "unknown"))
+            except Exception as exc:
+                log.warning("Camera init failed (module not connected?): %s", exc)
     return _camera
 
 
