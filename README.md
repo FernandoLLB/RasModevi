@@ -470,10 +470,13 @@ Los usuarios con rol `developer` o `admin` pueden generar apps automáticamente 
 1. El usuario introduce nombre, descripción y categoría
 2. El frontend conecta via SSE a `/api/ai/create-app`
 3. Railway genera un HTML completo con Claude claude-opus-4-6 (streaming en tiempo real)
-4. Se crea un ZIP con el HTML y un `manifest.json` autogenerado
-5. El ZIP se sube a **Cloudflare R2** — permanente, no se pierde en reinicios de Railway
-6. La app aparece publicada en la tienda inmediatamente con `package_url` apuntando a R2
-7. El usuario la instala en la Pi — la Pi sigue el redirect 302 al ZIP en R2
+4. `claude-haiku-4-5` genera automáticamente una descripción legible para la tienda
+5. Se crea un ZIP con el HTML y un `manifest.json` autogenerado
+6. El ZIP se sube a **Cloudflare R2** — permanente, no se pierde en reinicios de Railway
+7. La app aparece publicada en la tienda inmediatamente con `package_url` apuntando a R2
+8. El usuario la instala en la Pi — la Pi sigue el redirect 302 al ZIP en R2
+
+**Transparencia open source:** el prompt original del usuario se almacena en `store_apps.ai_prompt` y es visible en la página de detalle de la app (sección colapsable "Generada con IA — ver prompt").
 
 **Apps generadas:** single HTML file, dark theme (`#0f0f1a`), optimizadas para pantalla táctil 800×480. Las apps pueden usar las librerías del mirror local (Chart.js, Three.js, Alpine.js, Anime.js, Matter.js, Tone.js, Marked.js) referenciadas como `<script src="/api/sdk/libs/chart.js">` — sin CDN externo. El sistema prompt incluye patrones de robustez obligatorios: manejo de errores global, gestión de estado centralizada, timers con limpieza, fetch con timeout.
 

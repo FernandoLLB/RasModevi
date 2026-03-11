@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
 import { storeApi } from '../api/store'
 import DeviceLayout from '../components/layout/DeviceLayout'
 import AppDetailHeader from '../components/detail/AppDetailHeader'
@@ -12,6 +12,7 @@ export default function AppDetailPage() {
   const [app, setApp] = useState(null)
   const [ratings, setRatings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showPrompt, setShowPrompt] = useState(false)
 
   const load = async () => {
     try {
@@ -58,6 +59,25 @@ export default function AppDetailPage() {
           <div className="mb-6">
             <h2 className="text-base font-semibold mb-3">Descripción</h2>
             <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-line">{app.long_description}</p>
+          </div>
+        )}
+
+        {app.ai_prompt && (
+          <div className="mb-6 border border-violet-500/20 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setShowPrompt(p => !p)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-violet-500/10 hover:bg-violet-500/15 transition-colors cursor-pointer"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-violet-300">
+                <Sparkles size={14} /> Generada con IA — ver prompt
+              </span>
+              {showPrompt ? <ChevronUp size={16} className="text-violet-400" /> : <ChevronDown size={16} className="text-violet-400" />}
+            </button>
+            {showPrompt && (
+              <div className="px-4 py-3 bg-violet-500/5">
+                <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap font-mono">{app.ai_prompt}</p>
+              </div>
+            )}
           </div>
         )}
 

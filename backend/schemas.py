@@ -105,6 +105,7 @@ class StoreAppDetail(StoreAppOut):
     long_description: Optional[str] = None
     hardware_tags: List[HardwareTagOut] = []
     rejection_reason: Optional[str] = None
+    ai_prompt: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

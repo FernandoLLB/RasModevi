@@ -924,12 +924,39 @@ async def _stream(
     # ------------------------------------------------------------------ #
     # Package into ZIP                                                     #
     # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ #
+    # Generate app description with Haiku (fast + cheap)                  #
+    # ------------------------------------------------------------------ #
+    yield evt({"type": "status", "step": "describing", "message": "Generando descripción..."})
+
+    app_description = description[:500]  # fallback: user prompt truncated
+    try:
+        desc_response = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=120,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Escribe una descripción en español de máximo 2 frases (80 palabras máximo) "
+                    f"para una app llamada «{name}» que se puede instalar en una Raspberry Pi. "
+                    f"Describe qué hace la app de forma atractiva para el usuario final. "
+                    f"Solo responde con la descripción, sin comillas ni prefijos.\n\n"
+                    f"La app fue creada con este prompt: {description[:300]}"
+                ),
+            }],
+        )
+        generated_desc = desc_response.content[0].text.strip()
+        if generated_desc:
+            app_description = generated_desc[:500]
+    except Exception:
+        pass  # fallback to user prompt
+
     yield evt({"type": "status", "step": "packaging", "message": "Empaquetando en ZIP..."})
 
     manifest = {
         "name": name,
         "version": "1.0.0",
-        "description": description[:500],
+        "description": app_description,
         "entry_point": "index.html",
         "required_hardware": [],
         "permissions": [],
@@ -958,8 +985,9 @@ async def _stream(
         category_id=category_id,
         name=name,
         slug=slug,
-        description=description[:500],
-        long_description=description,
+        description=app_description,
+        long_description=app_description,
+        ai_prompt=description,
         version="1.0.0",
         permissions=[],
         required_hardware=[],

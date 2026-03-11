@@ -163,6 +163,7 @@ class StoreApp(PlatformBase):
     permissions: Mapped[list] = mapped_column(JSON, default=list)
     status: Mapped[str] = mapped_column(String(20), default="pending")
     rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ai_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow

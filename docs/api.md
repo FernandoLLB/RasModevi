@@ -197,7 +197,8 @@ Detalle completo de una app publicada.
   "long_description": "Descripción larga en texto plano...",
   "hardware_tags": [
     { "id": 4, "name": "DHT22", "slug": "dht22", "interface": "gpio" }
-  ]
+  ],
+  "ai_prompt": "Prompt original del usuario si la app fue generada con IA, null en caso contrario"
 }
 ```
 
@@ -864,4 +865,43 @@ Estadísticas de la plataforma.
   "active_app": "clock",
   "recent_activity": [...]
 }
+```
+
+---
+
+## /api/ai — Generación de apps con IA
+
+### GET /api/ai/create-app
+
+Genera una app HTML completa usando Claude claude-opus-4-6 y la publica en la tienda automáticamente. Usa **Server-Sent Events (SSE)** — conéctate con `EventSource`.
+
+**Auth:** JWT en query param (limitación del browser EventSource API)
+
+**Query params:**
+| Param | Tipo | Descripción |
+|---|---|---|
+| `name` | string | Nombre de la app |
+| `description` | string | Descripción / prompt de generación |
+| `category_id` | int? | ID de categoría (opcional) |
+| `token` | string | JWT de acceso |
+
+**Rol requerido:** `developer` o `admin`
+
+**Eventos SSE:**
+```
+data: {"type": "status", "step": "connecting",  "message": "..."}
+data: {"type": "status", "step": "generating",  "message": "..."}
+data: {"type": "code_chunk", "text": "<chunk>"}   ← stream del HTML en tiempo real
+data: {"type": "status", "step": "describing",  "message": "..."}
+data: {"type": "status", "step": "packaging",   "message": "..."}
+data: {"type": "status", "step": "registering", "message": "..."}
+data: {"type": "done",   "store_app_id": 42, "installed_id": 7, "slug": "mi-app"}
+data: {"type": "error",  "message": "Descripción del error"}
+```
+
+**Comportamiento:**
+- La descripción de la app se genera automáticamente con `claude-haiku-4-5` a partir del nombre y el prompt
+- El prompt original del usuario se almacena en `store_app.ai_prompt` y es visible en la página de detalle de la app
+- La app se publica con `status=published` directamente (sin revisión)
+- La app se instala automáticamente en el dispositivo al completar la generación
 ```

@@ -51,6 +51,12 @@ def _migrate():
             conn.commit()
         except Exception:
             pass  # Column already gone
+        # Add ai_prompt (stores the original user prompt for AI-generated apps)
+        try:
+            conn.execute(text("ALTER TABLE store_apps ADD COLUMN ai_prompt TEXT"))
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
 
 
 @asynccontextmanager
