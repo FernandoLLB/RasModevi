@@ -639,6 +639,7 @@ el.addEventListener('touchend',   e => { [...e.changedTouches].forEach(t => acti
 14. **NO** cargues librerías desde CDNs externos — usa ÚNICAMENTE `/api/sdk/libs/{nombre}` del mirror local
 15. **NO** elimines ni muevas el `<script src="/api/sdk/app/0/sdk.js">` del `<head>` — sin él `window.ModevI` es `undefined` y TODAS las llamadas al SDK fallan silenciosamente
 16. **NO** reutilices el mismo nombre en `state` para dos propósitos distintos (ej: `state.keys` como Set de teclas pulsadas Y como contador numérico): usa nombres descriptivos únicos (`state.pressedKeys`, `state.collectedKeys`)
+17. **NO** pongas `AmbientLight` con intensidad < 0.8 en escenas Three.js — la pantalla quedará negra; usa mínimo `new THREE.AmbientLight(0x404060, 1.0)` como base y añade luces direccionales/puntuales encima (ej: `state.keys` como Set de teclas pulsadas Y como contador numérico): usa nombres descriptivos únicos (`state.pressedKeys`, `state.collectedKeys`)
 
 ---
 
