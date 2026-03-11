@@ -2218,39 +2218,64 @@ Esto es adecuado para el prototipo (TFG) pero no escala a múltiples usuarios co
 
 ### 9.2 Arquitectura multi-dispositivo (trabajo futuro)
 
-Para soportar un usuario → múltiples Pis o múltiples usuarios → múltiples Pis:
+Para soportar un usuario → múltiples Pis o múltiples usuarios → múltiples Pis.
 
-**1. Registro de dispositivo**
-```
-POST /api/devices/register
-  { device_name, owner_token }
-  → { device_id, device_token }
-```
-Al arrancar, la Pi llama a este endpoint. Railway asigna un `device_id` único y un `device_token` persistente. Se guarda en `device_settings` de la Pi.
+#### Modelo de autenticación elegido: auto-login del dispositivo
 
-**2. Modelo en BD (Railway/MySQL)**
+Hay dos enfoques posibles:
+
+- **Opción A — Login obligatorio**: el usuario introduce credenciales en la pantalla táctil al arrancar. Simple de implementar pero mala experiencia de kiosk.
+- **Opción B — Auto-login del dispositivo** ✓ **(elegida)**: la Pi se autentica sola con un `device_token` guardado localmente. El launcher arranca sin pedir contraseña. Si otro usuario quiere acceder desde un navegador externo, ese sí hace login explícito.
+
+Esta opción es la que siguen dispositivos similares en el mercado (iPad con Apple ID, Chromecast, smart TVs): se configura una vez y luego arranca directamente a la experiencia.
+
+#### Cambios necesarios por capa
+
+**1. Nueva tabla `devices` en MySQL (Railway)**
 ```sql
 CREATE TABLE devices (
-  id          INT PRIMARY KEY AUTO_INCREMENT,
-  owner_id    INT REFERENCES users(id),
-  device_name VARCHAR(100),
-  device_token VARCHAR(255) UNIQUE,  -- Bearer token de la Pi
-  last_seen   DATETIME,
-  public_url  VARCHAR(500)           -- ej. pi-fernando.modevi.es
+  id           INT PRIMARY KEY AUTO_INCREMENT,
+  owner_id     INT REFERENCES users(id),
+  device_name  VARCHAR(100),
+  device_token VARCHAR(255) UNIQUE,  -- token permanente de la Pi
+  last_seen    DATETIME,
+  public_url   VARCHAR(500)          -- ej. https://pi.modevi.es
 );
 ```
 
-**3. Routing dinámico en el frontend**
-```javascript
-// En vez de VITE_DEVICE_API_URL fijo:
-const { user } = useAuth()
-const DEVICE_BASE = user?.device?.public_url ?? STORE_BASE
+**2. Endpoints nuevos en Railway**
+```
+POST /api/devices/register   { device_name, owner_token } → { device_id, device_token }
+GET  /api/devices/mine       → device info del usuario autenticado
 ```
 
-**4. Autenticación separada**
-- Browser → Railway: JWT de usuario (`Authorization: Bearer <user_token>`)
-- Pi → Railway: device token (`X-Device-Token: <device_token>`)
-- Las peticiones de device API se autentican con el device token, no con el JWT del usuario
+**3. Startup de la Pi**
+Al arrancar, si no tiene `device_token` guardado en `device_settings`:
+```
+Pi → POST /api/devices/register → guarda device_token en device_settings (SQLite)
+Pi → usa device_token para auto-login → obtiene JWT → arranca kiosk
+```
+
+**4. Routing dinámico en el frontend**
+```javascript
+// Actualmente (hardcoded):
+const DEVICE_BASE = import.meta.env.VITE_DEVICE_API_URL
+
+// Futuro (dinámico por usuario):
+const { user } = useAuth()
+const DEVICE_BASE = user?.device?.public_url ?? null
+// Si DEVICE_BASE es null → mostrar "Sin dispositivo vinculado"
+```
+
+**5. Autenticación separada**
+```
+Browser → Railway:  Authorization: Bearer <user_jwt>
+Pi → Railway:       X-Device-Token: <device_token>
+```
+
+#### Punto de mayor riesgo
+
+`api/client.js` actualmente asume `DEVICE_BASE` como constante bakeada en build time. Hacerlo dinámico requiere propagar el estado de "dispositivo disponible" por todos los componentes que hacen peticiones de device, y gestionar el estado "sin dispositivo vinculado" en la UI.
 
 ### 9.3 Otras mejoras planificadas
 
