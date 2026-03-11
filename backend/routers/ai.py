@@ -953,6 +953,15 @@ async def _stream(
         zf.extractall(install_path)
     installed.install_path = str(install_path)
 
+    # Inject ModevI SDK into index.html so window.ModevI is available inside the iframe
+    index_html = install_path / "index.html"
+    if index_html.exists():
+        html_content = index_html.read_text(encoding="utf-8")
+        sdk_tag = f'<script src="/api/sdk/app/{installed.id}/sdk.js"></script>'
+        inject_before = "</head>" if "</head>" in html_content else "</body>"
+        html_content = html_content.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
+        index_html.write_text(html_content, encoding="utf-8")
+
     device_db.add(ActivityLog(
         installed_app_id=installed.id,
         action="install",
