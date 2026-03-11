@@ -22,11 +22,12 @@ function SkeletonCard() {
 }
 
 export default function AppGrid({ apps, loading }) {
-  // grid-cols-2 base (mobile)
-  // md: 3 cols (Pi 800px — md breakpoint 768px applies)
-  // lg: 3 cols (desktop, sidebar takes some space)
-  // xl: 4 cols (large desktop with sidebar, more breathing room)
-  const gridClass = 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4'
+  // grid-cols-2  mobile (<640px)
+  // sm: 3 cols   Pi 720px portrait — sm breakpoint (640px) applies, md (768px) does not
+  // md: 3 cols   tablet 768px+
+  // lg: 3 cols   desktop with sidebar
+  // xl: 4 cols   large desktop with sidebar
+  const gridClass = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4'
 
   if (loading) {
     return (

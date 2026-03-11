@@ -17,39 +17,43 @@ export default function TopBar({ onSearch, searchValue = '' }) {
 
   useEffect(() => { setMenuOpen(false) }, [location.pathname])
 
+  // Breakpoint strategy:
+  // < md  (< 768px): phones + Pi 720px portrait → hamburger menu
+  // ≥ md  (≥ 768px): tablets / desktop           → full inline nav
+
   return (
     <header className="sticky top-0 z-50 glass border-b border-white/[0.06]">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 xl:px-8 py-2.5 flex items-center gap-2 sm:gap-3">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-6 xl:px-8 py-2.5 flex items-center gap-2 md:gap-3">
 
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 shrink-0 mr-1">
+        <Link to="/" className="flex items-center gap-2 shrink-0">
           <Logo size={26} />
-          <span className="text-sm font-bold tracking-tight gradient-text hidden sm:block">ModevI</span>
+          <span className="text-sm font-bold tracking-tight gradient-text">ModevI</span>
         </Link>
 
-        {/* Main nav tabs */}
+        {/* Main nav tabs — always visible */}
         <div className="flex items-center bg-white/[0.04] rounded-2xl p-1 gap-0.5">
           <Link
             to="/"
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all min-h-[44px] ${
+            className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl text-sm font-semibold transition-all min-h-[44px] ${
               isStore
                 ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25'
                 : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
             }`}
           >
             <Store size={15} />
-            <span className="hidden sm:inline">Tienda</span>
+            <span>Tienda</span>
           </Link>
           <Link
             to="/launcher"
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all relative min-h-[44px] ${
+            className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl text-sm font-semibold transition-all relative min-h-[44px] ${
               isLauncher
                 ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/25'
                 : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
             }`}
           >
             <LayoutGrid size={15} />
-            <span className="hidden sm:inline">Mis Apps</span>
+            <span>Mis Apps</span>
             {installedApps.length > 0 && (
               <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none ${
                 isLauncher ? 'bg-white/20 text-white' : 'bg-violet-500/20 text-violet-400'
@@ -64,7 +68,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         {activeApp && (
           <Link
             to={`/running/${activeApp.id}`}
-            className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/15 transition-colors min-h-[44px]"
+            className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/15 transition-colors min-h-[44px]"
           >
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shrink-0" />
             <span className="max-w-[120px] truncate">{activeApp.store_app?.name || 'App activa'}</span>
@@ -72,9 +76,9 @@ export default function TopBar({ onSearch, searchValue = '' }) {
           </Link>
         )}
 
-        {/* Search — hidden on mobile (in hamburger dropdown) */}
+        {/* Search — md+ only */}
         {onSearch && (
-          <div className="hidden sm:flex flex-1 max-w-xs">
+          <div className="hidden md:flex flex-1 max-w-sm">
             <input
               value={searchValue}
               onChange={e => onSearch(e.target.value)}
@@ -86,18 +90,18 @@ export default function TopBar({ onSearch, searchValue = '' }) {
 
         <div className="flex-1" />
 
-        {/* System indicator — desktop */}
-        <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500">
+        {/* System indicator — lg+ only */}
+        <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500">
           <Zap size={11} className="text-emerald-500" />
           <span className="mono">Pi 5</span>
         </div>
 
-        {/* Developer links — desktop only */}
+        {/* Developer links — md+ only */}
         {isDeveloper && (
           <>
             <Link
               to="/ai/create"
-              className={`hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors min-h-[44px] ${
+              className={`hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors min-h-[44px] ${
                 isAI
                   ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
@@ -108,7 +112,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
             </Link>
             <Link
               to="/developer"
-              className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors min-h-[44px]"
+              className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors min-h-[44px]"
             >
               <Code2 size={16} />
               <span className="hidden lg:inline">Developer</span>
@@ -116,9 +120,9 @@ export default function TopBar({ onSearch, searchValue = '' }) {
           </>
         )}
 
-        {/* User — hidden on mobile (shown in hamburger) */}
+        {/* User — md+ only */}
         {isAuthenticated ? (
-          <div className="hidden sm:flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-1">
             <Link
               to="/settings"
               className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] transition-colors min-h-[44px]"
@@ -139,16 +143,16 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         ) : (
           <Link
             to="/login"
-            className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-indigo-300 hover:text-white hover:bg-indigo-500/15 transition-colors min-h-[44px]"
+            className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-indigo-300 hover:text-white hover:bg-indigo-500/15 transition-colors min-h-[44px]"
           >
             <LogIn size={16} />
             Entrar
           </Link>
         )}
 
-        {/* Hamburger — mobile only */}
+        {/* Hamburger — phones + Pi (< md = < 768px) */}
         <button
-          className="sm:hidden p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="md:hidden p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           onClick={() => setMenuOpen(o => !o)}
           aria-label="Menú"
         >
@@ -156,11 +160,11 @@ export default function TopBar({ onSearch, searchValue = '' }) {
         </button>
       </div>
 
-      {/* ── Mobile dropdown menu ── */}
+      {/* ── Dropdown menu (phones + Pi 720px) ── */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-white/[0.06] px-4 py-3 flex flex-col gap-2 animate-fade-in">
+        <div className="md:hidden border-t border-white/[0.06] px-4 py-3 flex flex-col gap-2 animate-fade-in">
 
-          {/* User profile row */}
+          {/* User profile */}
           {isAuthenticated ? (
             <Link
               to="/settings"
@@ -171,7 +175,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{user.username}</div>
-                <div className="text-xs text-slate-500">Ver ajustes</div>
+                <div className="text-xs text-slate-500">Ajustes del dispositivo</div>
               </div>
               <Settings size={15} className="text-slate-500 shrink-0" />
             </Link>
@@ -187,8 +191,8 @@ export default function TopBar({ onSearch, searchValue = '' }) {
 
           {/* Search */}
           {onSearch && (
-            <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 min-h-[50px]">
-              <Search size={15} className="text-slate-500 shrink-0" />
+            <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-2.5 min-h-[52px]">
+              <Search size={16} className="text-slate-500 shrink-0" />
               <input
                 value={searchValue}
                 onChange={e => onSearch(e.target.value)}
@@ -203,7 +207,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
           {activeApp && (
             <Link
               to={`/running/${activeApp.id}`}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold min-h-[50px]"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold min-h-[52px]"
             >
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shrink-0" />
               {activeApp.store_app?.name || 'App activa'}
@@ -216,7 +220,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
             <>
               <Link
                 to="/ai/create"
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[50px] ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[52px] ${
                   isAI ? 'bg-violet-500/20 text-violet-300' : 'text-slate-300 hover:bg-white/[0.06]'
                 }`}
               >
@@ -225,7 +229,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
               </Link>
               <Link
                 to="/developer"
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/[0.06] transition-colors min-h-[50px]"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-300 hover:bg-white/[0.06] transition-colors min-h-[52px]"
               >
                 <Code2 size={18} />
                 Portal Developer
@@ -237,14 +241,13 @@ export default function TopBar({ onSearch, searchValue = '' }) {
           {isAuthenticated && (
             <button
               onClick={() => { logout(); setMenuOpen(false) }}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors w-full text-left min-h-[50px]"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors w-full text-left min-h-[52px]"
             >
               <LogOut size={18} />
               Cerrar sesión
             </button>
           )}
 
-          {/* System info */}
           <div className="flex items-center gap-2 px-4 py-2 text-xs text-slate-600">
             <Zap size={11} className="text-emerald-500" />
             <span className="mono">ModevI Pi 5</span>
