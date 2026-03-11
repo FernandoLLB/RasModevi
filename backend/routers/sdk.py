@@ -51,6 +51,7 @@ _LIBS_META = {
     "matter.js": "Matter.js 0.19 — motor de física 2D (colisiones, gravedad...)",
     "tone.js":   "Tone.js 14.7 — síntesis de audio y música en el navegador",
     "marked.js": "Marked.js 9.1 — renderizado de Markdown a HTML",
+    "jszip.js":  "JSZip 3.10 — lectura y escritura de archivos ZIP en el navegador",
 }
 
 
