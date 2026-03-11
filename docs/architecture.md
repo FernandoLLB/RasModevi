@@ -1,7 +1,7 @@
 # ModevI — Complete System Architecture
 
-**Version**: 1.0
-**Date**: 2026-03-10
+**Version**: 1.1
+**Date**: 2026-03-11
 **Stack**: FastAPI 0.115 + SQLAlchemy 2.0 + SQLite | React 19 + Vite 6 + TailwindCSS 4 + React Router v7
 **Target**: Raspberry Pi 5, 16 GB RAM, 7" touch display, Chromium kiosk mode
 
@@ -1120,26 +1120,45 @@ Response: ActivityLogEntry[]  where ActivityLogEntry = {
 
 ### 3.6 File Storage Layout
 
+Los ficheros binarios (ZIPs de apps e iconos subidos por developers) se almacenan en **Cloudflare R2**, no en el filesystem local. R2 es un object storage S3-compatible con URL pública permanente, lo que resuelve el problema del filesystem efímero de Railway.
+
 ```
-backend/
-├── store/
-│   ├── packages/
-│   │   └── {store_app_id}/
-│   │       └── app.zip             # original uploaded ZIP, kept for re-install
-│   └── icons/
-│       └── {store_app_id}/
-│           └── icon.{png|jpg|svg}  # extracted from ZIP root
-├── installed/
-│   └── {installed_app_id}/         # unique per device installation
-│       ├── manifest.json           # copied from ZIP
-│       ├── index.html              # entry point
-│       └── assets/                 # all other ZIP contents
-└── modevi.db
+Cloudflare R2 — bucket "modevi"
+├── packages/
+│   └── {store_app_id}/
+│       └── app.zip              # ZIP de la app, URL permanente
+└── icons/
+    └── {store_app_id}/
+        └── icon.{png|jpg|svg}   # Icono subido por el developer
+
+Raspberry Pi — filesystem local
+├── backend/installed/
+│   └── {installed_app_id}/      # ZIP extraído al instalar en la Pi
+│       ├── manifest.json
+│       ├── index.html
+│       └── assets/
+├── backend/apps/                # Apps demo del seed (en repo git)
+│   ├── clock/
+│   ├── notes/
+│   └── ...
+└── backend/device.db            # SQLite dispositivo
 ```
 
-FastAPI serves `backend/installed/` at `/installed/` via `StaticFiles(html=True)`. This means `/installed/{installed_app_id}/` serves the app's `index.html` automatically, enabling the iframe `src` to point there directly.
+**Flujo de subida de app (developer):**
+1. Developer sube ZIP → `routers/developer.py` llama `r2.upload("packages/{id}/app.zip", ...)`
+2. Si el ZIP tiene icono → `r2.upload("icons/{id}/icon.png", ...)`
+3. `store_apps.package_url` y `store_apps.icon_path` se actualizan con URLs públicas de R2
 
-FastAPI serves `backend/store/icons/` at `/store-icons/` for icon `<img>` tags.
+**Flujo de instalación en la Pi:**
+1. Pi llama `GET /api/store/apps/{id}/package` en Railway
+2. Railway devuelve `302 → R2 public URL`
+3. Pi sigue el redirect (`follow_redirects=True` en httpx) y descarga el ZIP
+4. ZIP se extrae en `backend/installed/{installed_id}/`
+
+**Helper R2:** `backend/r2.py` — funciones `upload(key, data, content_type) → url`, `delete(key)`, `is_configured() → bool`.
+
+FastAPI (Pi) sirve `backend/installed/` en `/installed/` vía `StaticFiles(html=True)`, permitiendo que el iframe apunte directamente a `/installed/{id}/`.
+FastAPI (Railway y Pi) sirve `backend/apps/` en `/apps/` para las apps demo del seed.
 
 ### 3.7 Security Design
 
@@ -2186,3 +2205,59 @@ aiofiles>=23.0.0           # async file I/O
 ```
 
 No additional state management library (Redux, Zustand) is needed — Context API covers all use cases. No markdown parser is listed here but `marked` or `micromark` can be added for the `long_description` field rendering if desired.
+
+---
+
+## 9. Limitaciones actuales y trabajo futuro
+
+### 9.1 Modelo de dispositivo único
+
+El sistema actual asume **una única Raspberry Pi** por despliegue. `VITE_DEVICE_API_URL` está hardcodeado a `pi.modevi.es` en tiempo de build. Todos los usuarios que accedan a `modevi.es` comparten el mismo estado de dispositivo (mismo `device.db`, mismas apps instaladas, mismo launcher).
+
+Esto es adecuado para el prototipo (TFG) pero no escala a múltiples usuarios con múltiples Pis.
+
+### 9.2 Arquitectura multi-dispositivo (trabajo futuro)
+
+Para soportar un usuario → múltiples Pis o múltiples usuarios → múltiples Pis:
+
+**1. Registro de dispositivo**
+```
+POST /api/devices/register
+  { device_name, owner_token }
+  → { device_id, device_token }
+```
+Al arrancar, la Pi llama a este endpoint. Railway asigna un `device_id` único y un `device_token` persistente. Se guarda en `device_settings` de la Pi.
+
+**2. Modelo en BD (Railway/MySQL)**
+```sql
+CREATE TABLE devices (
+  id          INT PRIMARY KEY AUTO_INCREMENT,
+  owner_id    INT REFERENCES users(id),
+  device_name VARCHAR(100),
+  device_token VARCHAR(255) UNIQUE,  -- Bearer token de la Pi
+  last_seen   DATETIME,
+  public_url  VARCHAR(500)           -- ej. pi-fernando.modevi.es
+);
+```
+
+**3. Routing dinámico en el frontend**
+```javascript
+// En vez de VITE_DEVICE_API_URL fijo:
+const { user } = useAuth()
+const DEVICE_BASE = user?.device?.public_url ?? STORE_BASE
+```
+
+**4. Autenticación separada**
+- Browser → Railway: JWT de usuario (`Authorization: Bearer <user_token>`)
+- Pi → Railway: device token (`X-Device-Token: <device_token>`)
+- Las peticiones de device API se autentican con el device token, no con el JWT del usuario
+
+### 9.3 Otras mejoras planificadas
+
+| Mejora | Descripción |
+|--------|-------------|
+| **Actualizaciones OTA** | El developer publica v2; los dispositivos con v1 instalada reciben notificación y actualizan automáticamente |
+| **Permisos granulares** | Las apps declaran permisos en `manifest.json`; el usuario los aprueba al instalar (similar a apps móviles) |
+| **Hardware autodiscovery** | La Pi detecta qué sensores/módulos tiene conectados y filtra la store para mostrar solo apps compatibles |
+| **Panel admin web** | Gestión visual de usuarios, apps y dispositivos desde `modevi.es/admin` |
+| **App screenshots** | Los developers pueden subir capturas de pantalla (800×480) junto al ZIP |

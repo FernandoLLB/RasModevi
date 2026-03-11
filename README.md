@@ -65,6 +65,7 @@ El frontend detecta automáticamente a qué backend enviar cada petición según
 | Backend dispositivo | Python 3.13, FastAPI, Uvicorn — Raspberry Pi |
 | BD plataforma | MySQL en Railway |
 | BD dispositivo | SQLite local en la Pi |
+| Almacenamiento de ficheros | Cloudflare R2 (ZIPs de apps, iconos) |
 | Auth | JWT HS256 + bcrypt (passlib) |
 | IA | Claude claude-opus-4-6 (Anthropic API), SSE streaming |
 | Hardware | gpiozero (GPIO), smbus2 (I2C) |
@@ -182,7 +183,7 @@ PLATFORM_DB_URL=mysql+pymysql://user:pass@host/dbname
 DEVICE_DB_PATH=./device.db
 SECRET_KEY=tu-clave-secreta
 ANTHROPIC_API_KEY=sk-ant-...
-STORE_API_URL=https://modevi.es   # Para que la Pi descargue ZIPs de Railway
+STORE_API_URL=https://modevi.es   # Para que la Pi descargue ZIPs de R2 vía Railway
 ```
 
 ### Deploy en Railway
@@ -197,6 +198,11 @@ ANTHROPIC_API_KEY=<api key>
 DEVICE_DB_PATH=/tmp/device.db
 VITE_STORE_API_URL=https://modevi.es
 VITE_DEVICE_API_URL=https://pi.modevi.es
+R2_ENDPOINT_URL=https://<account_id>.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=<r2 access key>
+R2_SECRET_ACCESS_KEY=<r2 secret key>
+R2_BUCKET_NAME=modevi
+R2_PUBLIC_URL=https://pub-<hash>.r2.dev
 ```
 
 ---
@@ -226,7 +232,7 @@ Dos bases de datos separadas:
 | `users` | Usuarios. Roles: `user`, `developer`, `admin` |
 | `categories` | Categorías de apps |
 | `hardware_tags` | Etiquetas de hardware requerido |
-| `store_apps` | Apps publicadas. Incluye `package_data` LONGBLOB para persistir ZIPs |
+| `store_apps` | Apps publicadas. `package_url` apunta al ZIP en R2; `icon_path` al icono en R2 |
 | `store_app_hardware` | M2M apps ↔ hardware |
 | `app_ratings` | Valoraciones (1-5 estrellas) |
 
@@ -407,11 +413,40 @@ Los usuarios con rol `developer` o `admin` pueden generar apps automáticamente 
 2. El frontend conecta via SSE a `/api/ai/create-app`
 3. Railway genera un HTML completo con Claude claude-opus-4-6 (streaming en tiempo real)
 4. Se crea un ZIP con el HTML y un `manifest.json` autogenerado
-5. El ZIP se guarda en el filesystem de Railway **y** en la columna `package_data` de MySQL (para sobrevivir reinicios)
-6. La app aparece publicada en la tienda inmediatamente
-7. El usuario la instala en la Pi — la Pi descarga el ZIP de Railway vía `/api/store/apps/{id}/package`
+5. El ZIP se sube a **Cloudflare R2** — permanente, no se pierde en reinicios de Railway
+6. La app aparece publicada en la tienda inmediatamente con `package_url` apuntando a R2
+7. El usuario la instala en la Pi — la Pi sigue el redirect 302 al ZIP en R2
 
-**Apps generadas:** single HTML file, dark theme (`#0f0f1a`), optimizadas para pantalla táctil 800×480, sin CDN externos.
+**Apps generadas:** single HTML file, dark theme (`#0f0f1a`), optimizadas para pantalla táctil 800×480, sin CDN externos. El sistema prompt incluye patrones de robustez obligatorios: manejo de errores global, gestión de estado centralizada, timers con limpieza, fetch con timeout.
+
+---
+
+## Limitaciones actuales y trabajo futuro
+
+### Modelo de dispositivo único
+
+El sistema actual asume **un único dispositivo Pi** por instalación. Cualquier usuario que acceda a `modevi.es` interactúa con la misma Pi (el mismo `device.db`, los mismos archivos instalados). Esto es adecuado para el prototipo pero limita el escalado a múltiples usuarios/dispositivos.
+
+**Evolución natural hacia multi-dispositivo:**
+
+1. **Registro de dispositivo** — Al arrancar, la Pi se registra en Railway con un `device_token` único vinculado al usuario propietario
+2. **Autenticación de dispositivo** — La Pi se identifica en cada petición de device API mediante ese token, no el usuario desde el browser
+3. **Routing dinámico** — El frontend obtiene la URL del device del usuario autenticado (`user.device_url`) en lugar de usar `VITE_DEVICE_API_URL` fijo
+4. **BD device por usuario** — Cada Pi mantiene su `device.db` independiente, o se centraliza en Railway con `device_id` como clave de partición
+
+```
+Futuro:
+  Fernando → pi.modevi.es/fernando  → Pi de Fernando
+  María    → pi.modevi.es/maria     → Pi de María
+  (cada Pi registrada con su token, cada una con su estado independiente)
+```
+
+### Otras mejoras planificadas
+
+- **Panel de admin** con gestión visual de usuarios y apps desde la web
+- **Actualizaciones OTA** de apps — el developer publica v2 y los dispositivos instalados reciben la actualización
+- **Permisos granulares** — las apps declaran qué permisos necesitan y el usuario los aprueba al instalar
+- **Marketplace de hardware** — filtrar apps por el hardware exacto conectado a tu Pi (detectado automáticamente)
 
 ---
 
