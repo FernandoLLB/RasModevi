@@ -1,8 +1,0 @@
-{
-  "name": "Calculadora cientifica",
-  "version": "1.0.0",
-  "description": "Quiero que desarrolles un app que se auna calculdora cientifica",
-  "entry_point": "index.html",
-  "required_hardware": [],
-  "permissions": []
-}
