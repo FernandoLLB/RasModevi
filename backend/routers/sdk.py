@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import platform
+import sqlite3
 import time
 from datetime import datetime
 from pathlib import Path
@@ -22,12 +23,25 @@ from schemas import (
     GPIOReadOut, GPIOWriteIn,
     PWMWrite, PWMReadOut,
     I2CReadOut,
+    DBQueryIn,
     SensorOut, SystemInfo,
 )
 
 router = APIRouter(prefix="/api/sdk", tags=["sdk"])
 
 LIBS_DIR = Path(__file__).resolve().parent.parent / "libs"
+APP_DATA_DIR = Path(__file__).resolve().parent.parent / "app_data"
+
+
+def _app_db_path(installed_app_id: int) -> Path:
+    APP_DATA_DIR.mkdir(exist_ok=True)
+    return APP_DATA_DIR / f"app_{installed_app_id}.db"
+
+
+def _open_app_db(installed_app_id: int) -> sqlite3.Connection:
+    conn = sqlite3.connect(str(_app_db_path(installed_app_id)))
+    conn.row_factory = sqlite3.Row
+    return conn
 
 _LIBS_META = {
     "chart.js":  "Chart.js 4.4 — gráficas (line, bar, pie, radar, doughnut...)",
@@ -198,6 +212,49 @@ async def delete_app_data_key(
         )
     db.delete(entry)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+# App SQL database (per-app isolated SQLite)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/app/{installed_app_id}/db/query")
+async def sdk_db_query(
+    installed_app_id: int,
+    body: DBQueryIn,
+    db: Session = Depends(get_device_db),
+):
+    """Execute a SELECT and return rows as a list of objects."""
+    _get_installed(installed_app_id, db)
+    conn = _open_app_db(installed_app_id)
+    try:
+        cur = conn.execute(body.sql, body.params)
+        rows = [dict(row) for row in cur.fetchall()]
+        return {"rows": rows}
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=400, detail={"detail": str(exc), "code": "DB_ERROR"})
+    finally:
+        conn.close()
+
+
+@router.post("/app/{installed_app_id}/db/exec")
+async def sdk_db_exec(
+    installed_app_id: int,
+    body: DBQueryIn,
+    db: Session = Depends(get_device_db),
+):
+    """Execute an INSERT / UPDATE / DELETE / CREATE TABLE. Returns affected rows and last insert id."""
+    _get_installed(installed_app_id, db)
+    conn = _open_app_db(installed_app_id)
+    try:
+        cur = conn.execute(body.sql, body.params)
+        conn.commit()
+        return {"changes": cur.rowcount, "last_insert_id": cur.lastrowid}
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=400, detail={"detail": str(exc), "code": "DB_ERROR"})
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------

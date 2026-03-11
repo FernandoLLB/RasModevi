@@ -16,6 +16,7 @@ Plataforma modular de aplicaciones para Raspberry Pi 5 con pantalla táctil. El 
 - [Base de datos](#base-de-datos)
 - [API REST](#api-rest)
 - [SDK ModevI.js](#sdk-modevi-js)
+- [Librerías JS disponibles](#librerías-js-disponibles)
 - [Formato de apps](#formato-de-apps)
 - [Generación de apps con IA](#generación-de-apps-con-ia)
 - [Credenciales por defecto](#credenciales-por-defecto)
@@ -94,6 +95,7 @@ rasModevi/
 │   ├── auth.py              # JWT utilities + FastAPI dependencies
 │   ├── seed.py              # Datos iniciales (usuarios, categorías, apps demo)
 │   ├── modevi_sdk.py        # ModevI.js SDK (servido dinámicamente)
+│   ├── hw.py                # Utilidades de hardware compartidas (GPIO, PWM, I2C, cámara)
 │   ├── requirements.txt
 │   ├── routers/
 │   │   ├── auth.py          # POST /api/auth/{register,login,refresh} GET /me
@@ -101,13 +103,15 @@ rasModevi/
 │   │   ├── developer.py     # CRUD apps + upload ZIP (rol developer)
 │   │   ├── admin.py         # Aprobar/rechazar apps (rol admin)
 │   │   ├── device.py        # install/uninstall/activate/deactivate/launch
-│   │   ├── sdk.py           # Bridge para iframes: system info, app data, GPIO
-│   │   ├── hardware.py      # Sensores CRUD + GPIO + WebSocket stream
+│   │   ├── sdk.py           # Bridge para iframes: system info, app data, SQL DB, GPIO, PWM, I2C, cámara, librerías JS
+│   │   ├── hardware.py      # Sensores CRUD + GPIO + PWM + I2C + cámara + WebSocket stream
 │   │   ├── notes.py         # CRUD notas
 │   │   ├── system.py        # Info sistema (CPU, RAM, temp)
 │   │   └── ai.py            # Generación apps con IA (SSE streaming)
 │   ├── apps/                # Apps demo (clock, notes, photoframe, sysmonitor…)
 │   ├── installed/           # Apps instaladas — ZIP extraídos (ignorado por git)
+│   ├── app_data/            # BDs SQLite por app (ignorado por git)
+│   ├── libs/                # Mirror local de librerías JS (ignorado por git)
 │   └── store/
 │       ├── packages/        # ZIPs de apps (ignorado por git)
 │       └── icons/           # Iconos de apps
@@ -142,7 +146,8 @@ rasModevi/
 │   └── dist/                # Build de producción (generado con npm run build)
 ├── scripts/
 │   ├── start.sh             # Arranca el backend (python3 main.py)
-│   └── kiosk.sh             # Espera al backend y abre Chromium en kiosk
+│   ├── kiosk.sh             # Espera al backend y abre Chromium en kiosk
+│   └── download_libs.sh     # Descarga/actualiza las librerías JS del mirror local
 └── docs/
     ├── architecture.md
     ├── database-schema.md
@@ -162,6 +167,9 @@ cd rasModevi
 
 # Instalar dependencias Python
 pip install -r backend/requirements.txt
+
+# Descargar librerías JS del mirror local
+bash scripts/download_libs.sh
 
 # Compilar el frontend
 cd frontend && npm install && npm run build && cd ..
@@ -185,6 +193,8 @@ SECRET_KEY=tu-clave-secreta
 ANTHROPIC_API_KEY=sk-ant-...
 STORE_API_URL=https://modevi.es   # Para que la Pi descargue ZIPs de R2 vía Railway
 ```
+
+> **Nota:** `picamera2` no está disponible en pip. Instalarlo vía apt: `sudo apt install python3-picamera2`
 
 ### Deploy en Railway
 
@@ -322,6 +332,11 @@ PUT    /api/hardware/sensors/:id
 DELETE /api/hardware/sensors/:id
 GET    /api/hardware/gpio/:pin
 POST   /api/hardware/gpio/:pin
+GET    /api/hardware/gpio/:pin/pwm
+POST   /api/hardware/gpio/:pin/pwm
+GET    /api/hardware/i2c/:bus/:address/:register
+GET    /api/hardware/camera/snapshot
+GET    /api/hardware/camera/stream
 WS     /api/hardware/sensors/:id/stream
 ```
 
@@ -337,37 +352,80 @@ Devuelve Server-Sent Events (SSE) con el progreso de generación.
 
 ## SDK ModevI.js
 
-Las apps instaladas tienen acceso a `window.ModevI` en el iframe:
+Las apps instaladas tienen acceso a `window.ModevI` en el iframe (versión 1.1.0):
 
 ```javascript
 // Sistema
-const info = await ModevI.system.getInfo()
-// → { hostname, cpu_percent, ram_percent, temperature, uptime_seconds }
+const info = await ModevI.system.info()
+// → { hostname, platform, cpu_percent, cpu_count, ram_percent, ram_total, ram_used,
+//     disk_percent, disk_total, disk_used, temperature, uptime_seconds }
 
-// Base de datos por app (namespaced automáticamente)
-await ModevI.db.set('config', JSON.stringify({ theme: 'dark' }))
-const val = await ModevI.db.get('config')
-await ModevI.db.delete('config')
-const all = await ModevI.db.list()
-const pref = await ModevI.db.list('cfg')
+// ── SQL por app (ModevI.db) — para datos estructurados e históricos ──────────
+await ModevI.db.exec(
+  "CREATE TABLE IF NOT EXISTS lecturas (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, valor REAL)"
+)
+const { last_insert_id } = await ModevI.db.exec(
+  "INSERT INTO lecturas (ts, valor) VALUES (?, ?)", [Date.now(), 23.4]
+)
+const rows = await ModevI.db.query(
+  "SELECT AVG(valor) as media FROM lecturas WHERE ts > ?", [Date.now() - 3600000]
+)
+// Cada app tiene su propio SQLite aislado. Se borra al desinstalar.
 
-// GPIO
-const { value } = await ModevI.hardware.readGPIO(17)
-await ModevI.hardware.writeGPIO(27, 1)
+// ── KV store (ModevI.data) — para preferencias simples ───────────────────────
+await ModevI.data.set('tema', 'oscuro')
+const { value } = await ModevI.data.get('tema')   // → { key, value, updated_at }
+await ModevI.data.delete('tema')
+const all = await ModevI.data.getAll()
 
-// Sensores en tiempo real
-ModevI.hardware.streamSensor(sensorId, (data) => {
-  console.log(data.value, data.timestamp)
-})
+// ── GPIO digital ─────────────────────────────────────────────────────────────
+const { value } = await ModevI.hardware.gpioRead(17)
+await ModevI.hardware.gpioWrite(17, 1)
 
-// Notificaciones
+// ── PWM — LEDs dimmer, servos, ventiladores ───────────────────────────────────
+await ModevI.hardware.pwmSet(18, 0.75)        // pin 18 al 75%
+const { duty_cycle } = await ModevI.hardware.pwmGet(18)
+
+// ── I2C — sensores (BME280, VL53L0X, SSD1306…) ───────────────────────────────
+const { data } = await ModevI.hardware.i2cRead(0x76, 0xD0, 1)   // 1 byte
+const { data } = await ModevI.hardware.i2cRead(0x76, 0xF7, 8)   // 8 bytes
+
+// ── Cámara ────────────────────────────────────────────────────────────────────
+const imgUrl = await ModevI.hardware.camera.snapshot()   // data URL base64
+document.getElementById('foto').src = imgUrl
+document.getElementById('cam').src = ModevI.hardware.camera.streamUrl()  // MJPEG live
+
+// ── Notificaciones ────────────────────────────────────────────────────────────
 ModevI.notify.toast('Guardado', 'success')
-ModevI.notify.toast('Error', 'error')
+ModevI.notify.toast('Error al conectar', 'error')
 ```
 
 Carga manual en el `<head>`:
 ```html
 <script src="/api/sdk/app/APP_ID/sdk.js"></script>
+```
+
+---
+
+## Librerías JS disponibles
+
+Las apps pueden usar estas librerías sin CDN externo, referenciando el mirror local:
+
+| Librería | `<script>` tag | Uso |
+|----------|----------------|-----|
+| Chart.js 4.4 | `<script src="/api/sdk/libs/chart.js"></script>` | Gráficas (line, bar, pie, radar…) |
+| Three.js r160 | `<script src="/api/sdk/libs/three.js"></script>` | Gráficos 3D / WebGL |
+| Alpine.js 3.13 | `<script defer src="/api/sdk/libs/alpine.js"></script>` | Reactividad declarativa |
+| Anime.js 3.2 | `<script src="/api/sdk/libs/anime.js"></script>` | Animaciones CSS/JS |
+| Matter.js 0.19 | `<script src="/api/sdk/libs/matter.js"></script>` | Física 2D (juegos) |
+| Tone.js 14.7 | `<script src="/api/sdk/libs/tone.js"></script>` | Audio y síntesis musical |
+| Marked.js 9.1 | `<script src="/api/sdk/libs/marked.js"></script>` | Renderizar Markdown |
+
+El endpoint `GET /api/sdk/libs` devuelve el catálogo completo con URLs. Los archivos se sirven con caché de 1 año (`Cache-Control: immutable`).
+
+Al desplegar en una Pi nueva o actualizar versiones, ejecutar:
+```bash
+bash scripts/download_libs.sh
 ```
 
 ---
@@ -417,7 +475,7 @@ Los usuarios con rol `developer` o `admin` pueden generar apps automáticamente 
 6. La app aparece publicada en la tienda inmediatamente con `package_url` apuntando a R2
 7. El usuario la instala en la Pi — la Pi sigue el redirect 302 al ZIP en R2
 
-**Apps generadas:** single HTML file, dark theme (`#0f0f1a`), optimizadas para pantalla táctil 800×480, sin CDN externos. El sistema prompt incluye patrones de robustez obligatorios: manejo de errores global, gestión de estado centralizada, timers con limpieza, fetch con timeout.
+**Apps generadas:** single HTML file, dark theme (`#0f0f1a`), optimizadas para pantalla táctil 800×480. Las apps pueden usar las librerías del mirror local (Chart.js, Three.js, Alpine.js, Anime.js, Matter.js, Tone.js, Marked.js) referenciadas como `<script src="/api/sdk/libs/chart.js">` — sin CDN externo. El sistema prompt incluye patrones de robustez obligatorios: manejo de errores global, gestión de estado centralizada, timers con limpieza, fetch con timeout.
 
 ---
 

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 STORE_API_URL: str = os.getenv("STORE_API_URL", "").rstrip("/")
 
 from database import get_device_db, get_platform_db
-from models_device import ActivityLog, InstalledApp
+from models_device import ActivityLog, AppData, InstalledApp
 from models_platform import StoreApp, User
 from schemas import InstalledAppOut, StoreAppOut
 
@@ -25,6 +25,7 @@ router = APIRouter(prefix="/api/device", tags=["device"])
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PACKAGES_DIR = BACKEND_DIR / "store" / "packages"
 INSTALLED_DIR = BACKEND_DIR / "installed"
+APP_DATA_DIR = BACKEND_DIR / "app_data"
 
 
 # ---------------------------------------------------------------------------
@@ -182,10 +183,19 @@ async def uninstall_app(
             detail={"detail": "Installed app not found", "code": "NOT_FOUND"},
         )
 
+    # Delete installed files
     if installed.install_path:
         path = Path(installed.install_path)
         if INSTALLED_DIR in path.parents and path.exists():
             shutil.rmtree(path, ignore_errors=True)
+
+    # Delete per-app SQLite database
+    app_db_path = APP_DATA_DIR / f"app_{installed_id}.db"
+    if app_db_path.exists():
+        app_db_path.unlink()
+
+    # Delete KV store entries (fix: previously these were left orphaned)
+    device_db.query(AppData).filter(AppData.installed_app_id == installed_id).delete()
 
     device_db.add(ActivityLog(
         installed_app_id=installed.id,

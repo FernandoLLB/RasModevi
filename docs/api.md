@@ -393,7 +393,10 @@ Instala una app desde la tienda. Extrae el ZIP en `backend/installed/<id>/`. Inc
 
 ### POST /api/device/apps/:installed_id/uninstall
 
-Desinstala una app. Elimina los archivos extraídos y el registro de la base de datos.
+Desinstala una app. Elimina:
+- Los archivos extraídos del ZIP (`backend/installed/{id}/`)
+- La base de datos SQLite de la app (`backend/app_data/app_{id}.db`) si existe
+- Todas las entradas del KV store asociadas a esta app
 
 **Response 204**
 
@@ -513,6 +516,96 @@ En no-Pi: `{ "success": true, "mock": true }`
 
 ---
 
+### GET /api/hardware/gpio/:pin/pwm
+
+Lee el duty cycle PWM actual del pin.
+
+**Response 200:**
+```json
+{ "pin": 18, "duty_cycle": 0.75 }
+```
+
+Si el pin no ha sido configurado como PWM, devuelve 0.0.
+
+---
+
+### POST /api/hardware/gpio/:pin/pwm
+
+Establece el duty cycle PWM en un pin (para LEDs dimmer, servos, ventiladores…).
+
+**Body:**
+```json
+{ "duty_cycle": 0.75 }
+```
+
+`duty_cycle`: float entre 0.0 (apagado) y 1.0 (máxima potencia).
+
+**Response 200:**
+```json
+{ "pin": 18, "duty_cycle": 0.75 }
+```
+
+En no-Pi: funciona sin errores (no hace nada físico).
+
+---
+
+### GET /api/hardware/i2c/:bus/:address/:register
+
+Lee bytes de un dispositivo I2C.
+
+**Path params:**
+- `bus`: número de bus I2C (normalmente 1 en Raspberry Pi)
+- `address`: dirección del dispositivo en decimal (e.g. 118 para BME280 en 0x76)
+- `register`: registro a leer en decimal
+
+**Query params:**
+- `length` (int, default 1): número de bytes a leer
+
+**Response 200:**
+```json
+{ "bus": 1, "address": 118, "register": 208, "data": [96] }
+```
+
+`data` es un array de enteros (bytes).
+
+**Errores:** `500 I2C_ERROR` si el dispositivo no responde o el bus no está habilitado.
+
+Requiere: `sudo raspi-config` → Interface Options → I2C
+
+---
+
+### GET /api/hardware/camera/snapshot
+
+Captura un fotograma y lo devuelve como data URL base64.
+
+**Response 200:**
+```json
+{ "image": "data:image/jpeg;base64,/9j/...", "mock": false }
+```
+
+**Errores:** `503 NO_CAMERA` si no hay cámara disponible.
+
+Requiere: `picamera2` (`sudo apt install python3-picamera2`)
+
+---
+
+### GET /api/hardware/camera/stream
+
+Stream MJPEG en tiempo real. Usar directamente como `src` de un elemento `<img>`.
+
+**Media type:** `multipart/x-mixed-replace; boundary=frame`
+
+**Uso:**
+```html
+<img src="/api/hardware/camera/stream">
+```
+
+Emite ~10 fps hasta que el cliente desconecta.
+
+**Errores:** `503 NO_CAMERA` si no hay cámara disponible.
+
+---
+
 ### WS /api/hardware/sensors/:id/stream
 
 WebSocket que emite lecturas del sensor cada segundo.
@@ -564,6 +657,59 @@ Elimina un par clave-valor.
 
 ---
 
+### POST /api/sdk/app/:id/db/query
+
+Ejecuta una consulta SELECT en la base de datos SQLite aislada de la app. La BD se crea automáticamente en el primer uso.
+
+**Body:**
+```json
+{
+  "sql": "SELECT * FROM lecturas WHERE sensor = ? ORDER BY ts DESC LIMIT 50",
+  "params": ["temperatura"]
+}
+```
+
+**Response 200:**
+```json
+{
+  "rows": [
+    { "id": 1, "ts": 1704067200000, "valor": 23.4, "sensor": "temperatura" }
+  ]
+}
+```
+
+`rows` es un array de objetos. Las columnas dependen del `SELECT`. Array vacío si no hay resultados.
+
+**Errores:** `400 DB_ERROR` si el SQL es inválido.
+
+---
+
+### POST /api/sdk/app/:id/db/exec
+
+Ejecuta un statement SQL de escritura (`INSERT`, `UPDATE`, `DELETE`, `CREATE TABLE`, `DROP TABLE`).
+
+**Body:**
+```json
+{
+  "sql": "INSERT INTO lecturas (ts, valor, sensor) VALUES (?, ?, ?)",
+  "params": [1704067200000, 23.4, "temperatura"]
+}
+```
+
+**Response 200:**
+```json
+{
+  "changes": 1,
+  "last_insert_id": 42
+}
+```
+
+`changes`: número de filas afectadas. `last_insert_id`: ID del último INSERT (0 si no aplica).
+
+**Errores:** `400 DB_ERROR` si el SQL es inválido.
+
+---
+
 ### GET /api/sdk/hardware/sensors
 
 Devuelve los sensores activos del dispositivo (para las apps).
@@ -575,6 +721,86 @@ Lee un pin GPIO desde una app.
 ### POST /api/sdk/hardware/gpio/:pin
 
 Escribe un pin GPIO desde una app.
+
+---
+
+### GET /api/sdk/hardware/gpio/:pin/pwm
+
+Lee el duty cycle PWM actual del pin desde una app.
+
+**Response 200:** `{ "pin": 18, "duty_cycle": 0.75 }`
+
+---
+
+### POST /api/sdk/hardware/gpio/:pin/pwm
+
+Establece el duty cycle PWM desde una app.
+
+**Body:** `{ "duty_cycle": 0.0-1.0 }`
+
+**Response 200:** `{ "pin": 18, "duty_cycle": 0.75 }`
+
+---
+
+### GET /api/sdk/hardware/i2c/:bus/:address/:register
+
+Lee bytes I2C desde una app.
+
+**Query param:** `length` (int, default 1)
+
+**Response 200:** `{ "bus": 1, "address": 118, "register": 208, "data": [96] }`
+
+---
+
+### GET /api/sdk/hardware/camera/snapshot
+
+Captura un fotograma desde una app.
+
+**Response 200:** `{ "image": "data:image/jpeg;base64,..." }`
+
+---
+
+### GET /api/sdk/hardware/camera/stream
+
+Stream MJPEG desde una app. Usar como `src` de un elemento `<img>`:
+
+```html
+<img src="/api/sdk/hardware/camera/stream">
+```
+
+---
+
+## /api/sdk/libs — Mirror de librerías JS
+
+### GET /api/sdk/libs
+
+Lista todas las librerías disponibles en el mirror local.
+
+**Response 200:**
+```json
+[
+  {
+    "name": "chart.js",
+    "url": "/api/sdk/libs/chart.js",
+    "description": "Chart.js 4.4 — gráficas (line, bar, pie, radar, doughnut...)"
+  }
+]
+```
+
+---
+
+### GET /api/sdk/libs/:filename
+
+Sirve el archivo JS con cabeceras de caché de 1 año (`Cache-Control: public, max-age=31536000, immutable`).
+
+**Librerías disponibles:** `chart.js`, `three.js`, `alpine.js`, `anime.js`, `matter.js`, `tone.js`, `marked.js`
+
+**Uso en HTML de app:**
+```html
+<script src="/api/sdk/libs/chart.js"></script>
+```
+
+**Errores:** `404` si la librería no existe en el catálogo.
 
 ---
 

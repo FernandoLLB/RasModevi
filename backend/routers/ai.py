@@ -346,32 +346,81 @@ async function cargarDatos() {
 
 Disponible dentro del iframe. **Siempre envuelve en try/catch** con fallback a localStorage.
 
-### Base de datos persistente (KV store por app)
-```javascript
-// Todos los valores son strings. Para objetos: JSON.stringify/parse.
-await window.ModevI.db.get('clave')            // → string | null
-await window.ModevI.db.set('clave', 'valor')   // → void
-await window.ModevI.db.delete('clave')         // → void
-await window.ModevI.db.list('prefijo')         // → string[] (claves con ese prefijo)
+### Base de datos SQL por app (SQLite aislado)
 
-// Patrón de fallback obligatorio:
-async function guardar(key, value) {
-  const v = typeof value === 'string' ? value : JSON.stringify(value);
-  try { await window.ModevI?.db?.set(key, v); } catch(e) {}
-  try { localStorage.setItem(key, v); } catch(e) {}
-}
-async function cargar(key) {
-  try { const v = await window.ModevI?.db?.get(key); if (v !== null) return v; } catch(e) {}
-  return localStorage.getItem(key);
+Cada app tiene su propio SQLite. Úsalo para datos estructurados, históricos y consultas.
+
+```javascript
+// Crear tablas al iniciar (CREATE TABLE IF NOT EXISTS — idempotente)
+await window.ModevI.db.exec(`
+  CREATE TABLE IF NOT EXISTS lecturas (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts     INTEGER NOT NULL,
+    valor  REAL    NOT NULL,
+    sensor TEXT
+  )
+`);
+
+// Insertar
+const { last_insert_id } = await window.ModevI.db.exec(
+  "INSERT INTO lecturas (ts, valor, sensor) VALUES (?, ?, ?)",
+  [Date.now(), 23.4, "temperatura"]
+);
+
+// Consultar — devuelve array de objetos
+const rows = await window.ModevI.db.query(
+  "SELECT * FROM lecturas WHERE sensor = ? ORDER BY ts DESC LIMIT 100",
+  ["temperatura"]
+);
+// rows → [{id:1, ts:1234567890, valor:23.4, sensor:"temperatura"}, ...]
+
+// Agregaciones
+const [{ media }] = await window.ModevI.db.query(
+  "SELECT AVG(valor) as media FROM lecturas WHERE ts > ?",
+  [Date.now() - 3600000]  // última hora
+);
+```
+
+**Usa `ModevI.db` cuando necesites:** histórico de datos, múltiples registros, filtros/ordenación, relaciones entre tablas.
+
+### KV store — ModevI.data (preferencias simples)
+```javascript
+// Para configuraciones simples (tema, volumen, última selección...)
+// Todos los valores son strings — usa JSON.stringify para objetos.
+await window.ModevI.data.set('tema', 'oscuro');
+const entry = await window.ModevI.data.get('tema');  // → {key, value, updated_at} | null si no existe
+const todos  = await window.ModevI.data.getAll();    // → [{key, value, updated_at}, ...]
+await window.ModevI.data.delete('tema');
+
+// Patrón seguro para leer con valor por defecto:
+async function leerConDefault(key, defaultVal) {
+  try {
+    const entry = await window.ModevI?.data?.get(key);
+    return entry ? entry.value : defaultVal;
+  } catch(e) { return defaultVal; }
 }
 ```
 
 ### Información del sistema
 ```javascript
-const info = await window.ModevI.system.getInfo();
-// { hostname, platform, cpu_percent, temperature (°C|null),
-//   memory: { used_mb, total_mb, percent },
-//   disk: { used_gb, total_gb, percent }, uptime }
+const info = await window.ModevI.system.info();
+// {
+//   hostname: "modevi-pi",
+//   platform: "aarch64",
+//   cpu_percent: 12.4,
+//   cpu_count: 4,
+//   ram_percent: 45.2,
+//   ram_total: 17179869184,   // bytes
+//   ram_used:  7782506496,    // bytes
+//   disk_percent: 23.1,
+//   disk_total: 128849018880, // bytes
+//   disk_used:  29778337792,  // bytes
+//   temperature: 52.3,        // °C, null en no-Pi
+//   uptime_seconds: 86400
+// }
+// Ejemplo de uso legible:
+const ramMB = Math.round(info.ram_used / 1024 / 1024);
+const tempC = info.temperature?.toFixed(1) ?? 'N/A';
 ```
 
 ### Notificaciones toast
@@ -380,28 +429,43 @@ window.ModevI.notify.toast('Guardado correctamente', 'success');
 // Tipos: 'info' | 'success' | 'warning' | 'error'
 ```
 
-### Hardware (solo si el usuario lo pide explícitamente)
+### Hardware (SOLO incluir si el usuario pide funcionalidad de hardware explícitamente)
+
+> ⚠️ No añadas código de hardware en apps que no lo necesitan. El hardware puede no estar disponible y crashear la app. Siempre envuelve en try/catch con fallback visual.
+
 
 ```javascript
-// GPIO digital
-const { value } = await window.ModevI.hardware.gpioRead(17);   // pin BCM, devuelve 0 o 1
-await window.ModevI.hardware.gpioWrite(17, 1);                  // 0 = LOW, 1 = HIGH
+// ── GPIO digital ──────────────────────────────────────────────────────────
+try {
+  const { value } = await window.ModevI.hardware.gpioRead(17);   // pin BCM, 0 o 1
+  await window.ModevI.hardware.gpioWrite(17, 1);                  // 0=LOW, 1=HIGH
+} catch(e) { mostrarEstado('GPIO no disponible'); }
 
-// PWM — LEDs dimmer, servos, ventiladores
-await window.ModevI.hardware.pwmSet(18, 0.75);   // pin 18 al 75% de duty cycle
-const { duty_cycle } = await window.ModevI.hardware.pwmGet(18);
+// ── PWM — LEDs dimmer, servos, ventiladores ────────────────────────────────
+try {
+  await window.ModevI.hardware.pwmSet(18, 0.75);                  // 75% duty cycle
+  const { duty_cycle } = await window.ModevI.hardware.pwmGet(18); // leer valor actual
+} catch(e) { mostrarEstado('PWM no disponible'); }
 
-// I2C — sensores (BME280 temp/humedad en 0x76, VL53L0X distancia en 0x29, etc.)
-// i2cRead(address, register, length?, bus?)
-const { data } = await window.ModevI.hardware.i2cRead(0x76, 0xD0, 1);  // chip_id BME280
+// ── I2C — sensores: BME280 (0x76), VL53L0X (0x29), SSD1306 (0x3C)... ─────
+// i2cRead(address, register, length?, bus?)  — bus=1 por defecto
+try {
+  const { data } = await window.ModevI.hardware.i2cRead(0x76, 0xD0, 1);  // chip_id BME280
+  // data → array de enteros, e.g. [96]
+} catch(e) { mostrarEstado('Sensor I2C no disponible'); }
 
-// Cámara
-const imgUrl = await window.ModevI.hardware.camera.snapshot(); // data URL base64
-document.getElementById('foto').src = imgUrl;
+// ── Sensores registrados ────────────────────────────────────────────────────
+const sensores = await window.ModevI.hardware.sensors();  // → [{id, name, sensor_type, ...}]
 
-// Stream MJPEG en tiempo real (para vigilancia, visión, etc.)
+// ── Cámara ─────────────────────────────────────────────────────────────────
+try {
+  const imgUrl = await window.ModevI.hardware.camera.snapshot();  // data:image/jpeg;base64,...
+  document.getElementById('foto').src = imgUrl;
+} catch(e) { mostrarEstado('Cámara no disponible'); }
+
+// Stream MJPEG en tiempo real — asignar directamente a <img src>
+// <img id="camara" style="width:100%;height:auto">
 document.getElementById('camara').src = window.ModevI.hardware.camera.streamUrl();
-// En HTML: <img id="camara"> — el src del stream funciona como una imagen continua
 ```
 
 ---
@@ -533,6 +597,10 @@ el.addEventListener('touchend',   e => { [...e.changedTouches].forEach(t => acti
 8. **NO** mezcles `async/await` con callbacks sin sincronizar el orden
 9. **NO** olvides limpiar timers cuando el usuario navega fuera (`visibilitychange`)
 10. **NO** uses `document.write()` ni `eval()` — bloquean el render y son inseguros
+11. **NO** uses `ModevI.db.exec()` para SELECT — usa `query()` para consultas que devuelven filas
+12. **NO** olvides `CREATE TABLE IF NOT EXISTS` en `init()` antes de insertar o consultar
+13. **NO** añadas código de hardware (GPIO, I2C, cámara) si el usuario no lo pidió — puede fallar si no hay hardware conectado
+14. **NO** cargues librerías desde CDNs externos — usa ÚNICAMENTE `/api/sdk/libs/{nombre}` del mirror local
 
 ---
 
@@ -555,6 +623,10 @@ Antes de generar el HTML, verifica mentalmente:
 - [ ] ¿El layout es responsive: se ve bien en 360px (móvil), 720px (Pi) y 1200px (desktop)?
 - [ ] ¿Ningún elemento tiene ancho fijo en px que pueda desbordar en móvil?
 - [ ] ¿Los botones tienen `min-height: 44px` para que sean cómodos al tacto en móvil y Pi?
+- [ ] Si uso `ModevI.db`: ¿creo las tablas con `CREATE TABLE IF NOT EXISTS` en `init()` antes de usarlas?
+- [ ] Si uso `ModevI.db.query()`: ¿destructuro `rows` del resultado, no el objeto entero?
+- [ ] Si uso hardware: ¿envuelvo cada llamada en `try/catch` con fallback visual para cuando no hay hardware?
+- [ ] ¿Todas las librerías externas vienen de `/api/sdk/libs/` y NO de CDNs externos?
 
 ---
 
@@ -702,7 +774,21 @@ Antes de generar el HTML, verifica mentalmente:
 
     // ── Inicialización ───────────────────────────────────────────────────
     async function init() {
-      // Lógica principal aquí
+      try {
+        // Si la app necesita persistencia SQL, crear tablas aquí (idempotente):
+        // await window.ModevI?.db?.exec(
+        //   "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, ts INTEGER)"
+        // );
+
+        // Lógica principal aquí
+      } catch(err) {
+        mostrarEstado('Error al iniciar: ' + err.message);
+      }
+    }
+
+    function mostrarEstado(msg) {
+      const el = document.getElementById('__status__');
+      if (el) el.textContent = msg;
     }
 
     document.addEventListener('DOMContentLoaded', init);

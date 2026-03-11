@@ -102,7 +102,7 @@ Añade el script al `<head>` de tu `index.html`:
 
 ```javascript
 // Información del sistema operativo y hardware
-const info = await ModevI.system.getInfo()
+const info = await ModevI.system.info()
 console.log(info)
 /*
 {
@@ -122,36 +122,73 @@ console.log(info)
 */
 ```
 
-#### `ModevI.db`
+#### `ModevI.db` — Base de datos SQL por app
 
-Almacenamiento clave-valor privado de tu app. Los datos persisten entre sesiones y son independientes de los de otras apps.
+Cada app tiene su propio SQLite completamente aislado. Úsalo para datos estructurados, históricos y consultas complejas. La BD se crea automáticamente en el primer uso y se borra al desinstalar la app.
+
+```javascript
+// Crear tablas al iniciar la app (CREATE TABLE IF NOT EXISTS es idempotente)
+await ModevI.db.exec(`
+  CREATE TABLE IF NOT EXISTS lecturas (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      INTEGER NOT NULL,
+    valor   REAL    NOT NULL,
+    sensor  TEXT
+  )
+`)
+
+// Insertar filas
+const { last_insert_id } = await ModevI.db.exec(
+  "INSERT INTO lecturas (ts, valor, sensor) VALUES (?, ?, ?)",
+  [Date.now(), 23.4, "temperatura"]
+)
+
+// Consultar — devuelve array de objetos
+const rows = await ModevI.db.query(
+  "SELECT * FROM lecturas WHERE sensor = ? ORDER BY ts DESC LIMIT 100",
+  ["temperatura"]
+)
+// rows → [{id: 1, ts: 1704067200000, valor: 23.4, sensor: "temperatura"}, ...]
+
+// Agregaciones y filtros temporales
+const [{ media }] = await ModevI.db.query(
+  "SELECT AVG(valor) as media FROM lecturas WHERE ts > ?",
+  [Date.now() - 3_600_000]   // última hora
+)
+
+// Actualizar y eliminar
+await ModevI.db.exec("UPDATE lecturas SET valor = ? WHERE id = ?", [24.1, 1])
+await ModevI.db.exec("DELETE FROM lecturas WHERE ts < ?", [Date.now() - 86_400_000])
+```
+
+**Usa `ModevI.db` cuando necesites:** múltiples registros, datos históricos, filtros, ordenación, agrupación o relaciones entre tablas.
+
+#### `ModevI.data` — KV store (preferencias simples)
+
+Almacenamiento clave-valor para configuraciones que no requieren SQL. Todos los valores son strings.
 
 ```javascript
 // Guardar
-await ModevI.db.set('usuario', 'Fernando')
-await ModevI.db.set('config', JSON.stringify({ modo: 'oscuro', volumen: 80 }))
+await ModevI.data.set('tema', 'oscuro')
+await ModevI.data.set('volumen', '80')
 
 // Leer
-const nombre = await ModevI.db.get('usuario')   // "Fernando"
-const raw    = await ModevI.db.get('config')     // string JSON
-const config = JSON.parse(raw)
-
-// Eliminar
-await ModevI.db.delete('usuario')
+const entry = await ModevI.data.get('tema')   // → { key: "tema", value: "oscuro", updated_at: "..." }
 
 // Listar todos los pares
-const todos = await ModevI.db.list()
-// → [{ key: "config", value: "{...}", updated_at: "..." }]
+const todos = await ModevI.data.getAll()
 
-// Listar con prefijo
-const preferencias = await ModevI.db.list('pref_')
+// Eliminar
+await ModevI.data.delete('tema')
 ```
+
+**Usa `ModevI.data` para:** preferencias de usuario, configuraciones simples, último estado guardado (una sola clave por valor).
 
 #### `ModevI.hardware`
 
 ```javascript
 // Sensores registrados en el dispositivo
-const sensores = await ModevI.hardware.getSensors()
+const sensores = await ModevI.hardware.sensors()
 /*
 [
   {
@@ -166,19 +203,39 @@ const sensores = await ModevI.hardware.getSensors()
 */
 
 // Leer pin GPIO (devuelve 0 o 1)
-const { pin, value } = await ModevI.hardware.readGPIO(17)
+const { pin, value } = await ModevI.hardware.gpioRead(17)
 if (value === 1) console.log('Botón presionado')
 
 // Escribir pin GPIO
-await ModevI.hardware.writeGPIO(27, 1)  // encender
-await ModevI.hardware.writeGPIO(27, 0)  // apagar
+await ModevI.hardware.gpioWrite(27, 1)  // encender
+await ModevI.hardware.gpioWrite(27, 0)  // apagar
 
-// Stream de sensor en tiempo real
+// Stream de sensor en tiempo real (via WebSocket)
 const stopStream = ModevI.hardware.streamSensor(sensorId, (data) => {
   console.log(`Valor: ${data.value} a las ${new Date(data.timestamp * 1000).toLocaleTimeString()}`)
 })
 // Para detener el stream:
 stopStream()
+
+// PWM — control de brillo, velocidad, posición de servo
+await ModevI.hardware.pwmSet(18, 0.75)   // pin 18 al 75% de potencia
+await ModevI.hardware.pwmSet(18, 0.0)    // apagar
+const { duty_cycle } = await ModevI.hardware.pwmGet(18)
+
+// I2C — leer sensores (BME280, VL53L0X, SSD1306…)
+// i2cRead(address, register, length?, bus?)
+const { data } = await ModevI.hardware.i2cRead(0x76, 0xD0)     // 1 byte (chip_id BME280)
+const { data } = await ModevI.hardware.i2cRead(0x76, 0xF7, 8)  // 8 bytes (datos raw BME280)
+// data → array de enteros, e.g. [96] o [88, 110, 0, ...]
+
+// Cámara Pi
+const imgUrl = await ModevI.hardware.camera.snapshot()   // data:image/jpeg;base64,...
+document.getElementById('foto').src = imgUrl
+
+// Stream MJPEG en vivo (~10 fps)
+// Asignar directamente como src de un <img>
+document.getElementById('camara').src = ModevI.hardware.camera.streamUrl()
+// En HTML: <img id="camara" style="width:100%">
 ```
 
 #### `ModevI.notify`
@@ -219,7 +276,7 @@ ModevI.notify.toast('Batería baja', 'warning')
 
   <script>
     async function init() {
-      const sensores = await ModevI.hardware.getSensors()
+      const sensores = await ModevI.hardware.sensors()
       const dht = sensores.find(s => s.sensor_type === 'DHT22')
 
       if (!dht) {
@@ -252,6 +309,24 @@ ModevI.notify.toast('Batería baja', 'warning')
   "icon": "icon.png"
 }
 ```
+
+---
+
+## Librerías JS disponibles
+
+La plataforma sirve un mirror local de librerías populares que puedes usar sin CDN externo. Funcionan tanto en apps manuales como en las generadas por IA.
+
+| Librería | `<script>` | Cuándo usarla |
+|----------|------------|---------------|
+| Chart.js 4.4 | `<script src="/api/sdk/libs/chart.js"></script>` | Gráficas de todo tipo |
+| Three.js r160 | `<script src="/api/sdk/libs/three.js"></script>` | 3D y WebGL |
+| Alpine.js 3.13 | `<script defer src="/api/sdk/libs/alpine.js"></script>` | Reactividad declarativa ligera |
+| Anime.js 3.2 | `<script src="/api/sdk/libs/anime.js"></script>` | Animaciones fluidas |
+| Matter.js 0.19 | `<script src="/api/sdk/libs/matter.js"></script>` | Física 2D (juegos, simulaciones) |
+| Tone.js 14.7 | `<script src="/api/sdk/libs/tone.js"></script>` | Síntesis de audio y música |
+| Marked.js 9.1 | `<script src="/api/sdk/libs/marked.js"></script>` | Renderizar Markdown a HTML |
+
+Las rutas `/api/sdk/libs/*` se resuelven automáticamente dentro del iframe porque la app se sirve desde la misma Pi.
 
 ---
 
@@ -335,6 +410,6 @@ Esto significa:
 - ✅ Formularios
 - ✅ Ventanas emergentes (popups)
 - ❌ Acceso directo al DOM del host
-- ❌ `localStorage`/`sessionStorage` del dominio principal (usar `ModevI.db` en su lugar)
+- ❌ `localStorage`/`sessionStorage` del dominio principal (usar `ModevI.data` o `ModevI.db` en su lugar)
 - ❌ Service Workers
 - ❌ `allow-top-navigation` (no puede redirigir la página principal)

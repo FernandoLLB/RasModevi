@@ -196,6 +196,55 @@ MODEVI_SDK_JS = r"""
   };
 
   // -------------------------------------------------------------------------
+  // SQL database (per-app isolated SQLite)
+  // -------------------------------------------------------------------------
+  var db = {
+    /**
+     * Execute a SELECT query and return rows as an array of objects.
+     *
+     * @param {string}   sql     SQL query with ? placeholders
+     * @param {Array}    [params] Values for placeholders
+     * @returns {Promise<Array<Object>>}
+     *
+     * @example
+     * const rows = await ModevI.db.query(
+     *   "SELECT * FROM lecturas WHERE sensor = ? ORDER BY ts DESC LIMIT 50",
+     *   ["temperatura"]
+     * );
+     */
+    query: async function (sql, params) {
+      var result = await apiFetch('POST', '/api/sdk/app/' + installedAppId + '/db/query', {
+        sql: sql,
+        params: params || [],
+      });
+      return result.rows;
+    },
+
+    /**
+     * Execute an INSERT / UPDATE / DELETE / CREATE TABLE statement.
+     *
+     * @param {string}   sql     SQL statement with ? placeholders
+     * @param {Array}    [params] Values for placeholders
+     * @returns {Promise<{changes: number, last_insert_id: number}>}
+     *
+     * @example
+     * await ModevI.db.exec(
+     *   "CREATE TABLE IF NOT EXISTS lecturas (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, valor REAL)"
+     * );
+     * const { last_insert_id } = await ModevI.db.exec(
+     *   "INSERT INTO lecturas (ts, valor) VALUES (?, ?)",
+     *   [Date.now(), 23.4]
+     * );
+     */
+    exec: function (sql, params) {
+      return apiFetch('POST', '/api/sdk/app/' + installedAppId + '/db/exec', {
+        sql: sql,
+        params: params || [],
+      });
+    },
+  };
+
+  // -------------------------------------------------------------------------
   // Notifications
   // -------------------------------------------------------------------------
   var notify = {
@@ -231,10 +280,11 @@ MODEVI_SDK_JS = r"""
   // Public API
   // -------------------------------------------------------------------------
   var ModevI = {
-    version: '1.0.0',
+    version: '1.1.0',
     appId: installedAppId,
     system: system,
     data: data,
+    db: db,
     hardware: hardware,
     notify: notify,
   };
