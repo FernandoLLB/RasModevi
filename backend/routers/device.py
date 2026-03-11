@@ -150,15 +150,19 @@ async def install_app(
         with zipfile.ZipFile(zip_path) as zf:
             zf.extractall(install_path)
         installed.install_path = str(install_path)
-        # Inject ModevI SDK into index.html so window.ModevI is available inside the iframe
+        # Fix SDK script src: replace placeholder id=0 with the real installed id
         index_html = install_path / "index.html"
         if index_html.exists():
             html = index_html.read_text(encoding="utf-8")
             sdk_tag = f'<script src="/api/sdk/app/{installed.id}/sdk.js"></script>'
-            if sdk_tag not in html:
+            if '/api/sdk/app/0/sdk.js' in html:
+                html = html.replace(
+                    '<script src="/api/sdk/app/0/sdk.js"></script>', sdk_tag, 1
+                )
+            elif sdk_tag not in html:
                 inject_before = "</head>" if "</head>" in html else "</body>"
                 html = html.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
-                index_html.write_text(html, encoding="utf-8")
+            index_html.write_text(html, encoding="utf-8")
     else:
         demo_path = BACKEND_DIR / "apps" / (store_app.slug or "")
         if demo_path.exists():

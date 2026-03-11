@@ -639,6 +639,8 @@ Antes de generar el HTML, verifica mentalmente:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>Nombre de la App</title>
+  <!-- SDK de ModevI — NO eliminar, es obligatorio para window.ModevI -->
+  <script src="/api/sdk/app/0/sdk.js"></script>
   <style>
     :root {
       --bg-primary: #0f0f1a;
@@ -953,13 +955,19 @@ async def _stream(
         zf.extractall(install_path)
     installed.install_path = str(install_path)
 
-    # Inject ModevI SDK into index.html so window.ModevI is available inside the iframe
+    # Fix SDK script src: replace placeholder id=0 with the real installed id
     index_html = install_path / "index.html"
     if index_html.exists():
         html_content = index_html.read_text(encoding="utf-8")
         sdk_tag = f'<script src="/api/sdk/app/{installed.id}/sdk.js"></script>'
-        inject_before = "</head>" if "</head>" in html_content else "</body>"
-        html_content = html_content.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
+        # Replace placeholder tag (id=0) if present, otherwise inject before </head>
+        if '/api/sdk/app/0/sdk.js' in html_content:
+            html_content = html_content.replace(
+                '<script src="/api/sdk/app/0/sdk.js"></script>', sdk_tag, 1
+            )
+        elif sdk_tag not in html_content:
+            inject_before = "</head>" if "</head>" in html_content else "</body>"
+            html_content = html_content.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
         index_html.write_text(html_content, encoding="utf-8")
 
     device_db.add(ActivityLog(
