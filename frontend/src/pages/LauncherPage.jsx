@@ -35,7 +35,7 @@ export default function LauncherPage() {
       </div>
 
       {/* App grid */}
-      <div className="flex-1 flex items-start px-2 py-4">
+      <div className="flex-1 flex items-start px-3 sm:px-4 py-4">
         <div className="w-full">
           {installedApps.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center">

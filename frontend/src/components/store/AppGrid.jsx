@@ -4,7 +4,7 @@ function SkeletonCard() {
   return (
     <div className="card p-4 flex flex-col gap-3">
       <div className="flex items-start gap-3">
-        <div className="skeleton w-13 h-13 rounded-xl" style={{ width: 52, height: 52 }} />
+        <div className="skeleton rounded-xl shrink-0" style={{ width: 52, height: 52 }} />
         <div className="flex-1 flex flex-col gap-2">
           <div className="skeleton h-3.5 w-3/4 rounded" />
           <div className="skeleton h-3 w-1/2 rounded" />
@@ -22,9 +22,15 @@ function SkeletonCard() {
 }
 
 export default function AppGrid({ apps, loading }) {
+  // grid-cols-2 base (mobile)
+  // md: 3 cols (Pi 800px — md breakpoint 768px applies)
+  // lg: 4 cols (desktop)
+  // xl: 5 cols (large desktop)
+  const gridClass = 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3'
+
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className={gridClass}>
         {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
     )
@@ -41,7 +47,7 @@ export default function AppGrid({ apps, loading }) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div className={gridClass}>
       {apps.map((app, i) => (
         <AppCard key={app.id} app={app} index={i} />
       ))}

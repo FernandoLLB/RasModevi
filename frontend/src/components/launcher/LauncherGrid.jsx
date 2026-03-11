@@ -6,10 +6,16 @@ import { useDevice } from '../../context/DeviceContext'
 export default function LauncherGrid() {
   const { installedApps, loading } = useDevice()
 
+  // grid-cols-3 base (mobile portrait)
+  // sm: 4 cols (640px+)
+  // md: 5 cols (Pi 800px — md breakpoint 768px applies)
+  // lg: 6 cols (desktop)
+  const gridClass = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 sm:gap-6 p-4 sm:p-6'
+
   if (loading) {
     return (
-      <div className="grid grid-cols-4 sm:grid-cols-5 gap-6 p-6">
-        {Array.from({ length: 8 }).map((_, i) => (
+      <div className={gridClass}>
+        {Array.from({ length: 10 }).map((_, i) => (
           <div key={i} className="flex flex-col items-center gap-2">
             <div className="skeleton rounded-2xl" style={{ width: 76, height: 76 }} />
             <div className="skeleton h-3 w-14 rounded" />
@@ -20,8 +26,8 @@ export default function LauncherGrid() {
   }
 
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-6 p-6">
-      {installedApps.map((app, i) => (
+    <div className={gridClass}>
+      {installedApps.map(app => (
         <LauncherAppIcon key={app.id} app={app} />
       ))}
 
