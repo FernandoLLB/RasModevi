@@ -601,6 +601,7 @@ el.addEventListener('touchend',   e => { [...e.changedTouches].forEach(t => acti
 12. **NO** olvides `CREATE TABLE IF NOT EXISTS` en `init()` antes de insertar o consultar
 13. **NO** añadas código de hardware (GPIO, I2C, cámara) si el usuario no lo pidió — puede fallar si no hay hardware conectado
 14. **NO** cargues librerías desde CDNs externos — usa ÚNICAMENTE `/api/sdk/libs/{nombre}` del mirror local
+15. **NO** elimines ni muevas el `<script src="/api/sdk/app/0/sdk.js">` del `<head>` — sin él `window.ModevI` es `undefined` y TODAS las llamadas al SDK fallan silenciosamente
 
 ---
 
@@ -627,6 +628,7 @@ Antes de generar el HTML, verifica mentalmente:
 - [ ] Si uso `ModevI.db.query()`: ¿destructuro `rows` del resultado, no el objeto entero?
 - [ ] Si uso hardware: ¿envuelvo cada llamada en `try/catch` con fallback visual para cuando no hay hardware?
 - [ ] ¿Todas las librerías externas vienen de `/api/sdk/libs/` y NO de CDNs externos?
+- [ ] ¿El `<script src="/api/sdk/app/0/sdk.js">` está en el `<head>` y NO lo he eliminado? (la plataforma reemplaza el `0` por el id real al instalar — sin este tag `window.ModevI` es `undefined`)
 
 ---
 
