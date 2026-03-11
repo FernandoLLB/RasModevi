@@ -483,6 +483,7 @@ La plataforma sirve las siguientes librerías desde `/api/sdk/libs/`. **Úsalas 
 | Matter.js 0.19 | `<script src="/api/sdk/libs/matter.js"></script>` | Física 2D (colisiones, gravedad, juegos) |
 | Tone.js 14.7 | `<script src="/api/sdk/libs/tone.js"></script>` | Síntesis de audio, secuenciadores, música |
 | Marked.js 9.1 | `<script src="/api/sdk/libs/marked.js"></script>` | Renderizar Markdown → HTML |
+| JSZip 3.10 | `<script src="/api/sdk/libs/jszip.js"></script>` | Leer y generar archivos ZIP en el navegador |
 
 ### Ejemplo de uso con Chart.js
 ```html
@@ -621,6 +622,107 @@ el.addEventListener('touchend',   e => { [...e.changedTouches].forEach(t => acti
 
 ---
 
+## CARGA Y DESCARGA DE ARCHIVOS
+
+Las apps corren dentro de un **iframe con sandbox**. El sandbox incluye `allow-downloads` y `allow-popups`, por lo que tanto la descarga de archivos como la apertura de ventanas están permitidas. Sin embargo hay reglas importantes:
+
+### Descarga de archivos generados en el navegador
+
+Usa siempre el patrón `Blob` + `URL.createObjectURL` + `<a download>`. Nunca uses `window.location` ni `document.write` para descargas.
+
+```javascript
+function descargarArchivo(contenido, nombreArchivo, mimeType) {
+  const blob = new Blob([contenido], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// Ejemplos de uso:
+descargarArchivo('Hola mundo', 'nota.txt', 'text/plain;charset=utf-8');
+descargarArchivo(jsonString, 'datos.json', 'application/json');
+descargarArchivo(csvString, 'tabla.csv', 'text/csv;charset=utf-8');
+```
+
+> ⚠️ **Encoding**: usa siempre `charset=utf-8` en el MIME type para archivos de texto. Si generas un `Blob` con `new TextEncoder().encode(texto)` (Uint8Array), el resultado ya es UTF-8 correcto. Si lo generas desde un string directamente, añade `charset=utf-8` al tipo.
+
+### NO intentes generar PDFs binarios desde cero
+
+Generar un PDF válido con encoding correcto desde JavaScript puro es extremadamente complejo (el formato usa byte offsets exactos y encodings distintos a UTF-8). **Nunca escribas un generador de PDF manual.**
+
+Si el usuario necesita PDF, la única alternativa fiable sin librería externa es:
+```javascript
+// Abrir el contenido HTML en ventana nueva y llamar print() → "Guardar como PDF"
+function imprimirComoPdf(htmlContent, titulo) {
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (win) {
+    setTimeout(() => { win.focus(); win.print(); }, 800);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+}
+```
+
+### Lectura de archivos del usuario
+
+```javascript
+// Input file
+const input = document.createElement('input');
+input.type = 'file';
+input.accept = '.txt,.json,.csv';
+input.onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const texto = await file.text();           // para texto
+  const buffer = await file.arrayBuffer();   // para binarios (ZIP, imágenes...)
+};
+input.click();
+
+// Drag & drop
+zona.addEventListener('dragover', e => e.preventDefault());
+zona.addEventListener('drop', async e => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) procesarArchivo(file);
+});
+```
+
+### Lectura de ZIPs con JSZip
+
+Cuando necesites leer archivos ZIP (por ejemplo .docx, .xlsx, .apk, cualquier ZIP):
+
+```javascript
+// SIEMPRE usa JSZip del mirror — NO intentes parsear ZIP manualmente
+// <script src="/api/sdk/libs/jszip.js"></script>
+
+const zip = await JSZip.loadAsync(arrayBuffer);  // arrayBuffer de file.arrayBuffer()
+
+// Leer un archivo concreto dentro del ZIP
+const texto = await zip.file('ruta/dentro/del.zip').async('string');
+const bytes = await zip.file('archivo.bin').async('uint8array');
+const b64   = await zip.file('imagen.png').async('base64');
+
+// Listar archivos
+zip.forEach((rutaRelativa, archivo) => {
+  if (!archivo.dir) console.log(rutaRelativa);
+});
+
+// Crear un ZIP nuevo y descargarlo
+const zipNuevo = new JSZip();
+zipNuevo.file('hola.txt', 'Hola mundo');
+zipNuevo.file('datos.json', JSON.stringify({ x: 1 }));
+const blob = await zipNuevo.generateAsync({ type: 'blob' });
+descargarArchivo(blob, 'archivo.zip', 'application/zip');
+```
+
+---
+
 ## BUGS COMUNES A EVITAR — LISTA EXPLÍCITA
 
 1. **NO** uses variables globales sueltas — todo en `state = {}`
@@ -639,7 +741,9 @@ el.addEventListener('touchend',   e => { [...e.changedTouches].forEach(t => acti
 14. **NO** cargues librerías desde CDNs externos — usa ÚNICAMENTE `/api/sdk/libs/{nombre}` del mirror local
 15. **NO** elimines ni muevas el `<script src="/api/sdk/app/0/sdk.js">` del `<head>` — sin él `window.ModevI` es `undefined` y TODAS las llamadas al SDK fallan silenciosamente
 16. **NO** reutilices el mismo nombre en `state` para dos propósitos distintos (ej: `state.keys` como Set de teclas pulsadas Y como contador numérico): usa nombres descriptivos únicos (`state.pressedKeys`, `state.collectedKeys`)
-17. **NO** pongas `AmbientLight` con intensidad < 0.8 en escenas Three.js — la pantalla quedará negra; usa mínimo `new THREE.AmbientLight(0x404060, 1.0)` como base y añade luces direccionales/puntuales encima (ej: `state.keys` como Set de teclas pulsadas Y como contador numérico): usa nombres descriptivos únicos (`state.pressedKeys`, `state.collectedKeys`)
+17. **NO** pongas `AmbientLight` con intensidad < 0.8 en escenas Three.js — la pantalla quedará negra; usa mínimo `new THREE.AmbientLight(0x404060, 1.0)` como base y añade luces direccionales/puntuales encima
+18. **NO** generes PDFs binarios desde cero con un generador manual — el encoding falla con caracteres no-ASCII (tildes, ñ...) y el PDF queda vacío; usa el patrón `window.open` + `print()` descrito en la sección de archivos
+19. **NO** parsees archivos ZIP manualmente — usa JSZip (`/api/sdk/libs/jszip.js`) que maneja correctamente todos los métodos de compresión y variantes del formato
 
 ---
 
