@@ -602,6 +602,7 @@ el.addEventListener('touchend',   e => { [...e.changedTouches].forEach(t => acti
 13. **NO** añadas código de hardware (GPIO, I2C, cámara) si el usuario no lo pidió — puede fallar si no hay hardware conectado
 14. **NO** cargues librerías desde CDNs externos — usa ÚNICAMENTE `/api/sdk/libs/{nombre}` del mirror local
 15. **NO** elimines ni muevas el `<script src="/api/sdk/app/0/sdk.js">` del `<head>` — sin él `window.ModevI` es `undefined` y TODAS las llamadas al SDK fallan silenciosamente
+16. **NO** reutilices el mismo nombre en `state` para dos propósitos distintos (ej: `state.keys` como Set de teclas pulsadas Y como contador numérico): usa nombres descriptivos únicos (`state.pressedKeys`, `state.collectedKeys`)
 
 ---
 
@@ -629,6 +630,7 @@ Antes de generar el HTML, verifica mentalmente:
 - [ ] Si uso hardware: ¿envuelvo cada llamada en `try/catch` con fallback visual para cuando no hay hardware?
 - [ ] ¿Todas las librerías externas vienen de `/api/sdk/libs/` y NO de CDNs externos?
 - [ ] ¿El `<script src="/api/sdk/app/0/sdk.js">` está en el `<head>` y NO lo he eliminado? (la plataforma reemplaza el `0` por el id real al instalar — sin este tag `window.ModevI` es `undefined`)
+- [ ] ¿Cada propiedad de `state` tiene un nombre único y descriptivo? ¿Ninguna se reutiliza para dos tipos de dato distintos (ej: Set vs número)?
 
 ---
 
