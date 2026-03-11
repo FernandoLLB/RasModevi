@@ -41,14 +41,12 @@ export default function FeaturedBanner({ app }) {
           </div>
         </div>
 
-        {/* Action buttons — horizontal on mobile, vertical on sm+ */}
-        <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto shrink-0">
-          <div className="flex-1 sm:flex-none">
-            <InstallButton storeApp={app} size="md" fullWidth />
-          </div>
+        {/* Action buttons */}
+        <div className="flex sm:flex-col gap-2 w-full sm:w-auto shrink-0">
+          <InstallButton storeApp={app} size="md" fullWidth />
           <Link
             to={`/app/${app.slug}`}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] transition-colors min-h-[48px]"
           >
             Ver más <ArrowRight size={14} />
           </Link>
