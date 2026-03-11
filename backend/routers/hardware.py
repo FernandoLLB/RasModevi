@@ -1,23 +1,24 @@
-"""Hardware router — manage registered sensors and GPIO access with WebSocket streaming."""
+"""Hardware router — manage registered sensors, GPIO, PWM, I2C and camera."""
 from __future__ import annotations
 
 import asyncio
+import base64
 import time
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Response, WebSocket, WebSocketDisconnect, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+import hw
 from database import get_device_db
 from models_device import RegisteredSensor
-from schemas import GPIOReadOut, GPIOWriteIn, SensorOut, SensorRegister, SensorUpdate
-
-try:
-    from gpiozero import LED, Button  # type: ignore
-
-    GPIOZERO_AVAILABLE = True
-except Exception:
-    GPIOZERO_AVAILABLE = False
+from schemas import (
+    GPIOReadOut, GPIOWriteIn,
+    PWMWrite, PWMReadOut,
+    I2CReadOut,
+    SensorOut, SensorRegister, SensorUpdate,
+)
 
 router = APIRouter(prefix="/api/hardware", tags=["hardware"])
 
@@ -54,10 +55,7 @@ async def update_sensor(
 ):
     sensor = db.query(RegisteredSensor).filter(RegisteredSensor.id == sensor_id).first()
     if not sensor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"detail": "Sensor not found", "code": "NOT_FOUND"},
-        )
+        raise HTTPException(status_code=404, detail={"detail": "Sensor not found", "code": "NOT_FOUND"})
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(sensor, field, value)
     db.commit()
@@ -69,54 +67,115 @@ async def update_sensor(
 async def delete_sensor(sensor_id: int, db: Session = Depends(get_device_db)):
     sensor = db.query(RegisteredSensor).filter(RegisteredSensor.id == sensor_id).first()
     if not sensor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"detail": "Sensor not found", "code": "NOT_FOUND"},
-        )
+        raise HTTPException(status_code=404, detail={"detail": "Sensor not found", "code": "NOT_FOUND"})
     db.delete(sensor)
     db.commit()
 
 
 # ---------------------------------------------------------------------------
-# GPIO read/write
+# GPIO digital read / write
 # ---------------------------------------------------------------------------
 
 
 @router.get("/gpio/{pin}", response_model=GPIOReadOut)
 async def gpio_read(pin: int):
-    if not GPIOZERO_AVAILABLE:
-        return GPIOReadOut(pin=pin, value=0)
     try:
-        btn = Button(pin)
-        value = 1 if btn.is_pressed else 0
+        value = hw.gpio_read(pin)
         return GPIOReadOut(pin=pin, value=value)
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"detail": str(exc), "code": "GPIO_ERROR"},
-        )
+        raise HTTPException(status_code=500, detail={"detail": str(exc), "code": "GPIO_ERROR"})
 
 
 @router.post("/gpio/{pin}")
 async def gpio_write(pin: int, body: GPIOWriteIn):
-    if not GPIOZERO_AVAILABLE:
-        return {"success": True, "mock": True}
     try:
-        led = LED(pin)
-        if body.value:
-            led.on()
-        else:
-            led.off()
-        return {"success": True}
+        hw.gpio_write(pin, body.value)
+        return {"success": True, "mock": not hw.GPIOZERO_AVAILABLE}
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"detail": str(exc), "code": "GPIO_ERROR"},
-        )
+        raise HTTPException(status_code=500, detail={"detail": str(exc), "code": "GPIO_ERROR"})
 
 
 # ---------------------------------------------------------------------------
-# WebSocket streaming
+# GPIO PWM
+# ---------------------------------------------------------------------------
+
+
+@router.get("/gpio/{pin}/pwm", response_model=PWMReadOut)
+async def pwm_read(pin: int):
+    return PWMReadOut(pin=pin, duty_cycle=hw.gpio_pwm_get(pin))
+
+
+@router.post("/gpio/{pin}/pwm", response_model=PWMReadOut)
+async def pwm_write(pin: int, body: PWMWrite):
+    try:
+        hw.gpio_pwm_set(pin, body.duty_cycle)
+        return PWMReadOut(pin=pin, duty_cycle=body.duty_cycle)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail={"detail": str(exc), "code": "PWM_ERROR"})
+
+
+# ---------------------------------------------------------------------------
+# I2C
+# ---------------------------------------------------------------------------
+
+
+@router.get("/i2c/{bus}/{address}/{register}", response_model=I2CReadOut)
+async def i2c_read(bus: int, address: int, register: int, length: int = 1):
+    """
+    Read `length` bytes from an I2C device.
+    - bus: usually 1 on Raspberry Pi
+    - address: device address in decimal (e.g. 118 for BME280 at 0x76)
+    - register: register address in decimal
+    """
+    try:
+        data = hw.i2c_read(bus, address, register, length)
+        return I2CReadOut(bus=bus, address=address, register=register, data=data)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail={"detail": str(exc), "code": "I2C_ERROR"})
+
+
+# ---------------------------------------------------------------------------
+# Camera
+# ---------------------------------------------------------------------------
+
+
+@router.get("/camera/snapshot")
+async def camera_snapshot():
+    """Return a single JPEG frame as a base64 data URL."""
+    jpeg = await hw.camera_snapshot()
+    if jpeg is None:
+        raise HTTPException(status_code=503, detail={"detail": "Camera not available", "code": "NO_CAMERA"})
+    b64 = base64.b64encode(jpeg).decode()
+    return {"image": f"data:image/jpeg;base64,{b64}", "mock": False}
+
+
+@router.get("/camera/stream")
+async def camera_stream():
+    """
+    MJPEG stream — use directly as <img src="/api/hardware/camera/stream">.
+    Streams at ~10 fps until the client disconnects.
+    """
+    if not hw.CAMERA_AVAILABLE:
+        raise HTTPException(status_code=503, detail={"detail": "Camera not available", "code": "NO_CAMERA"})
+
+    async def _multipart():
+        async for frame in hw.camera_frames(fps=10):
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n"
+                + frame
+                + b"\r\n"
+            )
+
+    return StreamingResponse(
+        _multipart(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# WebSocket streaming (registered sensors)
 # ---------------------------------------------------------------------------
 
 
@@ -138,6 +197,5 @@ async def sensor_stream(sensor_id: int, websocket: WebSocket):
 
 def _mock_sensor_value(sensor_id: int) -> float:
     import math
-
     t = time.time()
     return round(20.0 + 5.0 * math.sin(t / 10.0 + sensor_id), 2)

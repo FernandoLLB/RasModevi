@@ -128,13 +128,70 @@ MODEVI_SDK_JS = r"""
     },
 
     /**
-     * Write a value to a GPIO pin.
+     * Write a digital value to a GPIO pin.
      * @param {number} pin   BCM pin number
      * @param {0|1}    value 0 = LOW, 1 = HIGH
      * @returns {Promise<{success}>}
      */
     gpioWrite: function (pin, value) {
       return apiFetch('POST', '/api/sdk/hardware/gpio/' + pin, { value: value });
+    },
+
+    /**
+     * Set PWM duty cycle on a pin (for LEDs dimmer, servos, fans...).
+     * @param {number} pin        BCM pin number
+     * @param {number} dutyCycle  0.0 (off) → 1.0 (full on)
+     * @returns {Promise<{pin, duty_cycle}>}
+     */
+    pwmSet: function (pin, dutyCycle) {
+      return apiFetch('POST', '/api/sdk/hardware/gpio/' + pin + '/pwm', { duty_cycle: dutyCycle });
+    },
+
+    /**
+     * Read current PWM duty cycle for a pin.
+     * @param {number} pin  BCM pin number
+     * @returns {Promise<{pin, duty_cycle}>}
+     */
+    pwmGet: function (pin) {
+      return apiFetch('GET', '/api/sdk/hardware/gpio/' + pin + '/pwm');
+    },
+
+    /**
+     * Read bytes from an I2C device.
+     * @param {number} address   Device address (e.g. 0x76 for BME280)
+     * @param {number} register  Register to read from
+     * @param {number} [length]  Number of bytes to read (default 1)
+     * @param {number} [bus]     I2C bus number (default 1)
+     * @returns {Promise<{bus, address, register, data: number[]}>}
+     */
+    i2cRead: function (address, register, length, bus) {
+      var b = bus !== undefined ? bus : 1;
+      var l = length !== undefined ? length : 1;
+      return apiFetch('GET', '/api/sdk/hardware/i2c/' + b + '/' + address + '/' + register + '?length=' + l);
+    },
+
+    /**
+     * Camera utilities.
+     */
+    camera: {
+      /**
+       * Capture a single frame as a base64 JPEG data URL.
+       * Usage: document.getElementById('img').src = await ModevI.hardware.camera.snapshot();
+       * @returns {Promise<string>}  data:image/jpeg;base64,... URL
+       */
+      snapshot: async function () {
+        var result = await apiFetch('GET', '/api/sdk/hardware/camera/snapshot');
+        return result.image;
+      },
+
+      /**
+       * Get the MJPEG stream URL for use in an <img> tag.
+       * Usage: document.getElementById('img').src = ModevI.hardware.camera.streamUrl();
+       * @returns {string}
+       */
+      streamUrl: function () {
+        return BASE_URL + '/api/sdk/hardware/camera/stream';
+      },
     },
   };
 

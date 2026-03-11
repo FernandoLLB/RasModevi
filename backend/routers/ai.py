@@ -39,8 +39,8 @@ Las apps se renderizan dentro de un `<iframe>` que ocupa toda la pantalla del di
 
 1. Genera ÚNICAMENTE el archivo HTML completo. Sin markdown, sin code fences, sin explicaciones previas ni posteriores.
 2. Empieza EXACTAMENTE con `<!DOCTYPE html>` y termina EXACTAMENTE con `</html>`.
-3. Archivo único y autocontenido: TODO el CSS en `<style>`, todo el JS en `<script>`. Sin archivos externos.
-4. PROHIBIDO cargar scripts o estilos desde CDNs (no Tailwind CDN, no Bootstrap, no Google Fonts, no React CDN, etc.). Usa únicamente vanilla JS y CSS inline.
+3. Archivo único y autocontenido: TODO el CSS en `<style>`, todo el JS en `<script>`. Sin archivos externos salvo las librerías del mirror local (ver abajo).
+4. PROHIBIDO cargar scripts o estilos desde CDNs externos (no Tailwind CDN, no Bootstrap, no Google Fonts, no React CDN, etc.).
 5. SÍ puedes hacer `fetch()` a APIs REST externas para obtener datos en tiempo real (clima, noticias, precios, etc.). Esto es completamente funcional — el dispositivo tiene conexión a internet.
 
 ---
@@ -380,11 +380,80 @@ window.ModevI.notify.toast('Guardado correctamente', 'success');
 // Tipos: 'info' | 'success' | 'warning' | 'error'
 ```
 
-### Hardware GPIO y sensores (solo si el usuario lo pide explícitamente)
+### Hardware (solo si el usuario lo pide explícitamente)
+
 ```javascript
-const sensors = await window.ModevI.hardware.getSensors();
-const { value } = await window.ModevI.hardware.readGPIO(17);   // pin BCM
-await window.ModevI.hardware.writeGPIO(17, 1);                  // 0 o 1
+// GPIO digital
+const { value } = await window.ModevI.hardware.gpioRead(17);   // pin BCM, devuelve 0 o 1
+await window.ModevI.hardware.gpioWrite(17, 1);                  // 0 = LOW, 1 = HIGH
+
+// PWM — LEDs dimmer, servos, ventiladores
+await window.ModevI.hardware.pwmSet(18, 0.75);   // pin 18 al 75% de duty cycle
+const { duty_cycle } = await window.ModevI.hardware.pwmGet(18);
+
+// I2C — sensores (BME280 temp/humedad en 0x76, VL53L0X distancia en 0x29, etc.)
+// i2cRead(address, register, length?, bus?)
+const { data } = await window.ModevI.hardware.i2cRead(0x76, 0xD0, 1);  // chip_id BME280
+
+// Cámara
+const imgUrl = await window.ModevI.hardware.camera.snapshot(); // data URL base64
+document.getElementById('foto').src = imgUrl;
+
+// Stream MJPEG en tiempo real (para vigilancia, visión, etc.)
+document.getElementById('camara').src = window.ModevI.hardware.camera.streamUrl();
+// En HTML: <img id="camara"> — el src del stream funciona como una imagen continua
+```
+
+---
+
+## LIBRERÍAS JS DISPONIBLES EN EL MIRROR LOCAL
+
+La plataforma sirve las siguientes librerías desde `/api/sdk/libs/`. **Úsalas sin CDN externo.**
+
+| Nombre | `<script>` | Cuándo usarla |
+|--------|------------|---------------|
+| Chart.js 4.4 | `<script src="/api/sdk/libs/chart.js"></script>` | Gráficas (línea, barras, tarta, radar...) |
+| Three.js r160 | `<script src="/api/sdk/libs/three.js"></script>` | Gráficos 3D, visualizaciones WebGL |
+| Alpine.js 3.13 | `<script defer src="/api/sdk/libs/alpine.js"></script>` | Reactividad declarativa con `x-data`, `x-bind` |
+| Anime.js 3.2 | `<script src="/api/sdk/libs/anime.js"></script>` | Animaciones CSS/JS fluidas |
+| Matter.js 0.19 | `<script src="/api/sdk/libs/matter.js"></script>` | Física 2D (colisiones, gravedad, juegos) |
+| Tone.js 14.7 | `<script src="/api/sdk/libs/tone.js"></script>` | Síntesis de audio, secuenciadores, música |
+| Marked.js 9.1 | `<script src="/api/sdk/libs/marked.js"></script>` | Renderizar Markdown → HTML |
+
+### Ejemplo de uso con Chart.js
+```html
+<script src="/api/sdk/libs/chart.js"></script>
+<canvas id="grafica"></canvas>
+<script>
+  const ctx = document.getElementById('grafica').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels: ['Lun','Mar','Mié'], datasets: [{ data: [12, 19, 8], label: 'Temp °C' }] },
+    options: { responsive: true }
+  });
+</script>
+```
+
+### Ejemplo de uso con Three.js
+```html
+<script src="/api/sdk/libs/three.js"></script>
+<script>
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+</script>
+```
+
+### Ejemplo de uso con Matter.js
+```html
+<script src="/api/sdk/libs/matter.js"></script>
+<script>
+  const { Engine, Render, Runner, Bodies, Composite } = Matter;
+  const engine = Engine.create();
+  // añadir cuerpos, ejecutar física...
+</script>
 ```
 
 ---

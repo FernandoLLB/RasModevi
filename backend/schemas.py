@@ -225,6 +225,22 @@ class GPIOWriteIn(BaseModel):
     value: int = Field(..., ge=0, le=1)
 
 
+class PWMWrite(BaseModel):
+    duty_cycle: float = Field(..., ge=0.0, le=1.0, description="Duty cycle 0.0 (off) → 1.0 (full on)")
+
+
+class PWMReadOut(BaseModel):
+    pin: int
+    duty_cycle: float
+
+
+class I2CReadOut(BaseModel):
+    bus: int
+    address: int
+    register: int
+    data: list[int]
+
+
 # ---------------------------------------------------------------------------
 # System schemas
 # ---------------------------------------------------------------------------
