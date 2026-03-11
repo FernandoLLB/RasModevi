@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+import r2
 from auth import verify_token
 from database import get_platform_db, get_device_db
 from models_platform import StoreApp, User
@@ -22,7 +23,6 @@ from models_device import InstalledApp, ActivityLog
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-PACKAGES_DIR = BACKEND_DIR / "store" / "packages"
 INSTALLED_DIR = BACKEND_DIR / "installed"
 
 SYSTEM_PROMPT = """\
@@ -464,13 +464,13 @@ async def _stream(
     db.commit()
     db.refresh(store_app)
 
-    # Save ZIP package — to disk and to DB (DB survives Railway restarts)
-    pkg_dir = PACKAGES_DIR / str(store_app.id)
-    pkg_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = pkg_dir / "app.zip"
-    zip_path.write_bytes(zip_bytes)
-    store_app.package_path = str(zip_path)
-    store_app.package_data = zip_bytes
+    # Upload ZIP to R2
+    package_url = r2.upload(
+        key=f"packages/{store_app.id}/app.zip",
+        data=zip_bytes,
+        content_type="application/zip",
+    )
+    store_app.package_url = package_url
     db.commit()
 
     # Extract to installed/ and register on device DB
@@ -480,7 +480,7 @@ async def _stream(
 
     install_path = INSTALLED_DIR / str(installed.id)
     install_path.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_path) as zf:
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         zf.extractall(install_path)
     installed.install_path = str(install_path)
 

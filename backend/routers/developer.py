@@ -12,6 +12,7 @@ from typing import List
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
+import r2
 from auth import require_developer
 from database import get_platform_db
 from models_platform import StoreApp, User
@@ -20,8 +21,6 @@ from schemas import StoreAppCreate, StoreAppDetail, StoreAppOut, StoreAppUpdate
 router = APIRouter(prefix="/api/developer", tags=["developer"])
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-ICONS_DIR = BACKEND_DIR / "store" / "icons"
-PACKAGES_DIR = BACKEND_DIR / "store" / "packages"
 MAX_ZIP_SIZE = 50 * 1024 * 1024  # 50 MB
 
 MANIFEST_REQUIRED = {"name", "version", "description"}
@@ -150,22 +149,25 @@ async def upload_app_package(
             },
         )
 
-    pkg_dir = PACKAGES_DIR / str(app_id)
-    pkg_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = pkg_dir / "app.zip"
-    zip_path.write_bytes(content)
+    package_url = r2.upload(
+        key=f"packages/{app_id}/app.zip",
+        data=content,
+        content_type="application/zip",
+    )
 
     icon_url: str | None = None
     icon_name = manifest.get("icon")
     if icon_name and icon_name in names:
-        icon_dir = ICONS_DIR / str(app_id)
-        icon_dir.mkdir(parents=True, exist_ok=True)
         icon_bytes = zf.read(icon_name)
-        dest = icon_dir / Path(icon_name).name
-        dest.write_bytes(icon_bytes)
-        icon_url = f"/store/icons/{app_id}/{Path(icon_name).name}"
+        ext = Path(icon_name).suffix.lower()
+        mime = "image/svg+xml" if ext == ".svg" else "image/png" if ext == ".png" else "image/jpeg"
+        icon_url = r2.upload(
+            key=f"icons/{app_id}/{Path(icon_name).name}",
+            data=icon_bytes,
+            content_type=mime,
+        )
 
-    app.package_path = str(zip_path)
+    app.package_url = package_url
     if icon_url:
         app.icon_path = icon_url
     if "version" in manifest:
@@ -220,12 +222,8 @@ async def delete_app(
             detail={"detail": "App not found", "code": "APP_NOT_FOUND"},
         )
 
-    pkg_dir = PACKAGES_DIR / str(app_id)
-    if pkg_dir.exists():
-        shutil.rmtree(pkg_dir)
-    icon_dir = ICONS_DIR / str(app_id)
-    if icon_dir.exists():
-        shutil.rmtree(icon_dir)
+    r2.delete(f"packages/{app_id}/app.zip")
+    r2.delete(f"icons/{app_id}/")
 
     db.delete(app)
     db.commit()

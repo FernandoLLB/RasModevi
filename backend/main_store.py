@@ -35,15 +35,22 @@ APPS_DIR = BACKEND_DIR / "apps"
 
 
 def _migrate():
-    """Add new columns to existing tables that create_all won't touch."""
+    """Add/remove columns to existing tables that create_all won't touch."""
     from sqlalchemy import text
     engine = get_platform_engine
     with engine.connect() as conn:
+        # Add package_url (R2 public URL, replaces package_data LONGBLOB)
         try:
-            conn.execute(text("ALTER TABLE store_apps ADD COLUMN package_data LONGBLOB"))
+            conn.execute(text("ALTER TABLE store_apps ADD COLUMN package_url VARCHAR(1000)"))
             conn.commit()
         except Exception:
             pass  # Column already exists
+        # Drop package_data LONGBLOB (data migrated to R2)
+        try:
+            conn.execute(text("ALTER TABLE store_apps DROP COLUMN package_data"))
+            conn.commit()
+        except Exception:
+            pass  # Column already gone
 
 
 @asynccontextmanager

@@ -18,7 +18,6 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
-    LargeBinary,
     String,
     Table,
     Text,
@@ -155,7 +154,7 @@ class StoreApp(PlatformBase):
     long_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     icon_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     package_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    package_data: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
+    package_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     version: Mapped[str] = mapped_column(String(50), nullable=False, default="1.0.0")
     downloads_count: Mapped[int] = mapped_column(Integer, default=0)
     avg_rating: Mapped[float] = mapped_column(Float, default=0.0)
