@@ -305,7 +305,7 @@ export default function AICreatePage() {
     setPublishLoading(true)
     try {
       const token = await getToken()
-      const res = await fetch(`${STORE_BASE}/api/ai/publish-improved`, {
+      const res = await fetch(`${DEVICE_BASE}/api/ai/publish-improved`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
