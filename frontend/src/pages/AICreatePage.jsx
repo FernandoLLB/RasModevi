@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useBlocker } from 'react-router-dom'
 import {
   Sparkles, ChevronRight, Check, Loader2, AlertCircle,
   Code2, Package, Store, Zap, RotateCcw,
@@ -124,10 +124,25 @@ export default function AICreatePage() {
   const codeRef = useRef(null)
   const esRef   = useRef(null)
 
+  const isStreaming = phase === 'streaming' || phase === 'debug_streaming'
+
+  // Block navigation while streaming
+  const blocker = useBlocker(isStreaming)
+
   useEffect(() => {
     storeApi.getCategories().then(setCategories).catch(console.error)
     return () => esRef.current?.close()
   }, [])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (!isStreaming) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isStreaming])
 
   useEffect(() => {
     if (codeRef.current) codeRef.current.scrollTop = codeRef.current.scrollHeight
@@ -370,7 +385,6 @@ export default function AICreatePage() {
   /* ── derived ─────────────────────────────────────────────────────────── */
   const activeSteps = (phase === 'debug_streaming' || (phase === 'done' && isDebugMode)) ? DEBUG_STEPS : STEPS
   const stepIdx = activeSteps.findIndex(s => s.id === currentStep)
-  const isStreaming = phase === 'streaming' || phase === 'debug_streaming'
 
   const showResult = isStreaming || phase === 'done' || phase === 'error'
   const showForm   = phase === 'idle' || phase === 'guided_questions'
@@ -444,6 +458,39 @@ export default function AICreatePage() {
 
   return (
     <DeviceLayout hideSearch>
+      {/* Navigation blocker modal */}
+      {blocker.state === 'blocked' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)] p-6 space-y-5 shadow-2xl animate-fade-up">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <AlertCircle size={18} className="text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white leading-snug">¿Cancelar generación?</p>
+                <p className="text-[13px] text-[var(--text-secondary)] mt-1 leading-relaxed">
+                  La IA está generando la app. Si sales ahora el proceso se cancelará y no se creará nada.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => blocker.reset()}
+                className="flex-1 px-4 py-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-sm font-medium text-[var(--text-secondary)] hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[48px] touch-manipulation"
+              >
+                Seguir esperando
+              </button>
+              <button
+                onClick={() => blocker.proceed()}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-500/15 border border-red-500/25 text-sm font-semibold text-red-300 hover:bg-red-500/25 active:scale-[0.97] transition-all min-h-[48px] touch-manipulation"
+              >
+                Sí, salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="relative min-h-[calc(100vh-64px)]">
 
         {/* ambient glow */}
