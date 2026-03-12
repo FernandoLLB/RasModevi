@@ -113,7 +113,7 @@ export default function AICreatePage() {
     const controller = new AbortController()
     esRef.current = { close: () => controller.abort() }
 
-    fetch(url, { signal: controller.signal })
+    fetch(url, { signal: controller.signal, headers: { Accept: 'text/event-stream' } })
       .then(async (res) => {
         if (!res.ok) {
           let msg = `Error del servidor (${res.status})`
