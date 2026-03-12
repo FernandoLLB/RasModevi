@@ -293,7 +293,6 @@ export default function AICreatePage() {
         message: d.message,
       })
       setImproveFeedback('')
-      setPublishForm({ name: appName, description: selectedImproveApp.store_app?.description ?? '', category_id: String(selectedImproveApp.store_app?.category_id ?? '') })
     })
   }
 
