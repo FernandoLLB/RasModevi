@@ -1,6 +1,7 @@
 """AI-assisted app generation via Claude API + Server-Sent Events."""
 from __future__ import annotations
 
+import base64
 import io
 import json
 import os
@@ -1077,6 +1078,18 @@ SYSTEM_PROMPTS = {
     "claude-haiku-4-5-20251001": HAIKU_SYSTEM_PROMPT,
 }
 
+
+def _emoji_icon_url(emoji: str) -> str:
+    """Return a data: URI for a square SVG containing the given emoji."""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        f'<text y=".9em" font-size="80" text-anchor="middle" x="50">{emoji}</text>'
+        "</svg>"
+    )
+    b64 = base64.b64encode(svg.encode()).decode()
+    return f"data:image/svg+xml;base64,{b64}"
+
+
 async def _stream(
     description: str,
     name: str,
@@ -1169,26 +1182,33 @@ async def _stream(
     yield evt({"type": "status", "step": "describing", "message": "Generando descripción..."})
 
     app_description = description[:500]  # fallback: user prompt truncated
+    app_icon_url: str | None = None
     try:
         desc_response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=120,
+            max_tokens=160,
             messages=[{
                 "role": "user",
                 "content": (
-                    f"Escribe una descripción en español de máximo 2 frases (80 palabras máximo) "
-                    f"para una app llamada «{name}» que se puede instalar en una Raspberry Pi. "
-                    f"Describe qué hace la app de forma atractiva para el usuario final. "
-                    f"Solo responde con la descripción, sin comillas ni prefijos.\n\n"
-                    f"La app fue creada con este prompt: {description[:300]}"
+                    f"Para una app llamada «{name}» creada con este prompt: {description[:300]}\n\n"
+                    f"Responde ÚNICAMENTE con un JSON con dos campos, sin texto adicional:\n"
+                    f"- \"description\": descripción en español de máximo 2 frases (80 palabras) que describe qué hace la app de forma atractiva\n"
+                    f"- \"emoji\": un único emoji que represente visualmente la app\n\n"
+                    f"Ejemplo: {{\"description\": \"Una app para...\", \"emoji\": \"🎵\"}}"
                 ),
             }],
         )
-        generated_desc = desc_response.content[0].text.strip()
-        if generated_desc:
-            app_description = generated_desc[:500]
+        raw = desc_response.content[0].text.strip()
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        parsed = json.loads(raw)
+        if parsed.get("description"):
+            app_description = str(parsed["description"])[:500]
+        if parsed.get("emoji"):
+            app_icon_url = _emoji_icon_url(str(parsed["emoji"]).strip())
     except Exception:
-        pass  # fallback to user prompt
+        pass  # fallback to user prompt, no icon
 
     yield evt({"type": "status", "step": "packaging", "message": "Empaquetando en ZIP..."})
 
@@ -1227,6 +1247,7 @@ async def _stream(
         description=app_description,
         long_description=app_description,
         ai_prompt=description,
+        icon_path=app_icon_url,
         version="1.0.0",
         permissions=[],
         required_hardware=[],
@@ -1574,6 +1595,29 @@ async def publish_improved_app(
 
     html_code = index_html.read_text(encoding="utf-8")
 
+    # Generate emoji icon with Haiku
+    publish_icon_url: str | None = None
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if api_key:
+            _client = anthropic.AsyncAnthropic(api_key=api_key)
+            icon_resp = await _client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=20,
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        f"Responde SOLO con un único emoji que represente visualmente "
+                        f"una app llamada «{body.name}»: {body.description[:200]}"
+                    ),
+                }],
+            )
+            emoji = icon_resp.content[0].text.strip().split()[0]
+            if emoji:
+                publish_icon_url = _emoji_icon_url(emoji)
+    except Exception:
+        pass
+
     manifest = {
         "name": body.name,
         "version": "1.0.0",
@@ -1603,6 +1647,7 @@ async def publish_improved_app(
         slug=slug,
         description=body.description,
         long_description=body.description,
+        icon_path=publish_icon_url,
         version="1.0.0",
         permissions=[],
         required_hardware=[],
