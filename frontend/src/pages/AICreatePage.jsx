@@ -257,7 +257,7 @@ export default function AICreatePage() {
                     key={key}
                     type="button"
                     onClick={() => setMode(key)}
-                    className={`relative z-10 flex-1 flex flex-col items-center gap-1 py-3.5 rounded-xl text-center transition-colors touch-manipulation min-h-[64px]
+                    className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3.5 rounded-xl text-center transition-colors touch-manipulation min-h-[64px]
                       ${mode === key ? 'text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
                   >
                     <span className="flex items-center gap-2">
