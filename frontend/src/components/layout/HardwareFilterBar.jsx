@@ -14,7 +14,7 @@ export default function HardwareFilterBar({ tags, selected, onSelect, sidebar = 
     <div className={`flex flex-wrap gap-2 ${sidebar ? '' : 'mb-4 animate-fade-in'}`}>
       <button
         onClick={() => onSelect('')}
-        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer min-h-[40px] ${
+        className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer min-h-[44px] ${
           !selected ? 'bg-white/10 text-white' : 'bg-white/[0.04] text-slate-400 hover:bg-white/[0.07]'
         }`}
       >
@@ -27,7 +27,7 @@ export default function HardwareFilterBar({ tags, selected, onSelect, sidebar = 
           <button
             key={tag.slug}
             onClick={() => onSelect(isActive ? '' : tag.slug)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border min-h-[40px] ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer border min-h-[44px] ${
               isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
             style={{
@@ -50,7 +50,7 @@ export default function HardwareFilterBar({ tags, selected, onSelect, sidebar = 
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] rounded-xl transition-colors mb-1 cursor-pointer"
+        className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] rounded-xl transition-colors mb-1 cursor-pointer"
       >
         <Cpu size={16} />
         Filtrar por hardware

@@ -26,7 +26,7 @@ export default function CategoryBar({ categories, selected, onSelect, vertical =
             <button
               key={cat.slug}
               onClick={() => onSelect(cat.slug)}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer min-h-[40px] w-full text-left ${
+              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer min-h-[44px] w-full text-left ${
                 isActive
                   ? 'bg-indigo-500/20 text-indigo-300'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.05]'

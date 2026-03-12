@@ -66,7 +66,7 @@ export default function AppDetailPage() {
           <div className="mb-6 border border-violet-500/20 rounded-xl overflow-hidden">
             <button
               onClick={() => setShowPrompt(p => !p)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-violet-500/10 hover:bg-violet-500/15 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between px-4 py-3 bg-violet-500/10 hover:bg-violet-500/15 transition-colors cursor-pointer min-h-[48px]"
             >
               <span className="flex items-center gap-2 text-sm font-medium text-violet-300">
                 <Sparkles size={14} /> Generada con IA — ver prompt
