@@ -240,11 +240,14 @@ export default function AICreatePage() {
             <div className="space-y-5 animate-fade-up">
 
               {/* Mode segmented control */}
-              <div className="relative flex p-1 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)]">
+              <div className="relative flex p-1.5 gap-1.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)]">
                 {/* sliding pill */}
                 <div
-                  className="absolute top-1 bottom-1 rounded-xl bg-gradient-to-r from-violet-600/30 to-indigo-600/30 border border-violet-500/20 transition-all duration-300 ease-out"
-                  style={{ width: 'calc(50% - 4px)', left: mode === 'libre' ? '4px' : 'calc(50% + 0px)' }}
+                  className="absolute top-1.5 bottom-1.5 rounded-xl bg-gradient-to-r from-violet-600/30 to-indigo-600/30 border border-violet-500/20 transition-all duration-300 ease-out"
+                  style={{
+                    width: 'calc(50% - 8px)',
+                    left: mode === 'libre' ? '6px' : 'calc(50% + 2px)',
+                  }}
                 />
                 {[
                   { key: 'libre',  label: 'Modo libre',  icon: PenLine,  sub: 'Tú describes' },
@@ -254,11 +257,11 @@ export default function AICreatePage() {
                     key={key}
                     type="button"
                     onClick={() => setMode(key)}
-                    className={`relative z-10 flex-1 flex flex-col items-center gap-0.5 px-4 py-3 rounded-xl text-center transition-colors touch-manipulation
+                    className={`relative z-10 flex-1 flex flex-col items-center gap-1 py-3.5 rounded-xl text-center transition-colors touch-manipulation min-h-[64px]
                       ${mode === key ? 'text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
                   >
-                    <span className="flex items-center gap-1.5">
-                      <Icon size={14} />
+                    <span className="flex items-center gap-2">
+                      <Icon size={15} />
                       <span className="text-sm font-semibold">{label}</span>
                     </span>
                     <span className="text-[11px] opacity-60">{sub}</span>
