@@ -280,8 +280,11 @@ export default function AICreatePage() {
                style={{ background: 'radial-gradient(ellipse, #6366f1 0%, transparent 70%)' }} />
         </div>
 
-        <div className="relative px-4 sm:px-6 xl:px-8 pt-6 pb-10">
-          <div className={showResult ? 'max-w-6xl mx-auto' : 'max-w-2xl mx-auto'}>
+        <div className={showResult
+          ? 'relative px-4 sm:px-6 xl:px-8 pt-6 pb-10'
+          : 'relative flex justify-center px-4 sm:px-6 pt-6 pb-10'
+        }>
+          <div className={showResult ? 'w-full max-w-6xl' : 'w-full max-w-2xl'}>
 
           {/* ── HEADER ────────────────────────────────────────────────── */}
           <header className="mb-6 animate-fade-in">
