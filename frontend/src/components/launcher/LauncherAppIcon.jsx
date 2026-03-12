@@ -51,16 +51,25 @@ export default function LauncherAppIcon({ app }) {
   const navigate = useNavigate()
   const [showDelete, setShowDelete] = useState(false)
   const longPressTimer = useRef(null)
+  const longPressTriggered = useRef(false)
   const isActive = app.is_active
 
   const handlePressStart = () => {
-    longPressTimer.current = setTimeout(() => setShowDelete(true), 600)
+    longPressTriggered.current = false
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true
+      setShowDelete(true)
+    }, 600)
   }
   const handlePressEnd = () => {
     clearTimeout(longPressTimer.current)
   }
 
   const handleTap = async () => {
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false
+      return
+    }
     if (showDelete) { setShowDelete(false); return }
     if (!app.is_active) await activate(app.id)
     await deviceApi.launch(app.id)
