@@ -9,6 +9,7 @@ export default function AppRunnerPage() {
   const { app_id } = useParams()
   const navigate = useNavigate()
   const iframeRef = useRef()
+  const cacheBust = useRef(Date.now()).current
   const { installedApps } = useDevice()
   const [toast, setToast] = useState(null)
   const [showBack, setShowBack] = useState(true)
@@ -52,8 +53,8 @@ export default function AppRunnerPage() {
 
   const isDemoApp = app.install_path?.startsWith('apps/')
   const appUrl = isDemoApp
-    ? `${DEVICE_BASE}/apps/${app.store_app?.slug}/?v=${Date.now()}`
-    : `${DEVICE_BASE}/installed/${app_id}/?v=${Date.now()}`
+    ? `${DEVICE_BASE}/apps/${app.store_app?.slug}/?v=${cacheBust}`
+    : `${DEVICE_BASE}/installed/${app_id}/?v=${cacheBust}`
 
   return (
     <div className="fixed inset-0 bg-black z-50" onMouseMove={handleMouseMove} onTouchStart={() => setShowBack(true)}>
