@@ -1376,28 +1376,7 @@ async def _stream_debug(
     # Write updated HTML to disk
     index_html.write_text(new_html, encoding="utf-8")
 
-    # Re-upload ZIP to R2 if store app exists
-    if store_app and store_app.package_url:
-        manifest = {
-            "name": app_name,
-            "version": store_app.version or "1.0.0",
-            "description": store_app.description or "",
-            "entry_point": "index.html",
-            "required_hardware": store_app.required_hardware or [],
-            "permissions": store_app.permissions or [],
-        }
-        zip_buf = io.BytesIO()
-        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("index.html", new_html)
-            zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
-        try:
-            r2.upload(
-                key=f"packages/{store_app.id}/app.zip",
-                data=zip_buf.getvalue(),
-                content_type="application/zip",
-            )
-        except Exception:
-            pass  # R2 update is best-effort
+    # Improvement is local-only — the user can publish as a new app from the UI
 
     device_db.add(ActivityLog(
         installed_app_id=installed_id,
