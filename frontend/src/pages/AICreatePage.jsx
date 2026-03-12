@@ -5,7 +5,7 @@ import {
   Code2, Package, Store, Zap, RotateCcw,
   MessageSquare, Wand2, ChevronDown, ChevronUp,
   WrenchIcon, ArrowRight, ArrowLeft, PenLine,
-  Upload, Globe, ImageOff,
+  Upload, Globe, ImageOff, Clock,
 } from 'lucide-react'
 import DeviceLayout from '../components/layout/DeviceLayout'
 import { storeApi } from '../api/store'
@@ -96,6 +96,8 @@ export default function AICreatePage() {
   const [currentStep, setCurrentStep] = useState(null)
   const [codeText, setCodeText]       = useState('')
   const [errorMsg, setErrorMsg]       = useState('')
+  const [errorDetail, setErrorDetail] = useState('')
+  const [errorOverloaded, setErrorOverloaded] = useState(false)
   const [resultApp, setResultApp]     = useState(null)
   const [isDebugMode, setIsDebugMode] = useState(false)
 
@@ -200,7 +202,10 @@ export default function AICreatePage() {
                 else if (d.type === 'done') {
                   setCurrentStep('done'); setPhase('done'); onDone(d)
                 } else if (d.type === 'error') {
-                  setErrorMsg(d.message); setPhase('error')
+                  setErrorMsg(d.message)
+                  setErrorDetail(d.detail || '')
+                  setErrorOverloaded(d.overloaded || false)
+                  setPhase('error')
                 }
               } catch {}
             }
@@ -220,7 +225,7 @@ export default function AICreatePage() {
   const doGenerate = async (name, description, category_id) => {
     const token = await getToken()
     if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
-    setPhase('streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg(''); setResultApp(null); setIsDebugMode(false)
+    setPhase('streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg(''); setErrorDetail(''); setErrorOverloaded(false); setResultApp(null); setIsDebugMode(false)
     const qs = new URLSearchParams({ name, description, token, model: selectedModel, ...(category_id ? { category_id } : {}) })
     startSSE(`${STORE_BASE}/api/ai/create-app?${qs}`, (d) => {
       setResultApp({ id: d.app_id, slug: d.app_slug, installed_id: d.installed_id, message: d.message })
@@ -290,7 +295,7 @@ export default function AICreatePage() {
     if (!debugFeedback.trim() || !resultApp?.installed_id) return
     const token = await getToken()
     if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
-    setPhase('debug_streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg(''); setIsDebugMode(true)
+    setPhase('debug_streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg(''); setErrorDetail(''); setErrorOverloaded(false); setIsDebugMode(true)
     const qs = new URLSearchParams({ installed_id: resultApp.installed_id, feedback: debugFeedback, token, model: selectedModel })
     startSSE(`${DEVICE_BASE}/api/ai/debug-app?${qs}`, (d) => {
       setResultApp(prev => ({ ...prev, id: d.app_id ?? prev.id, slug: d.app_slug ?? prev.slug, installed_id: d.installed_id ?? prev.installed_id, message: d.message }))
@@ -338,7 +343,7 @@ export default function AICreatePage() {
     if (!improveFeedback.trim() || !selectedImproveApp) return
     const token = await getToken()
     if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
-    setPhase('debug_streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg('')
+    setPhase('debug_streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg(''); setErrorDetail(''); setErrorOverloaded(false)
     setIsDebugMode(true); setShowPublish(false); setPublishResult(null)
     const installedId = selectedImproveApp.id
     const appName = selectedImproveApp.store_app?.name ?? `App #${installedId}`
@@ -389,7 +394,7 @@ export default function AICreatePage() {
   /* ── reset ───────────────────────────────────────────────────────────── */
   const reset = () => {
     esRef.current?.close()
-    setPhase('idle'); setCurrentStep(null); setCodeText(''); setErrorMsg(''); setResultApp(null); setIsDebugMode(false)
+    setPhase('idle'); setCurrentStep(null); setCodeText(''); setErrorMsg(''); setErrorDetail(''); setErrorOverloaded(false); setResultApp(null); setIsDebugMode(false)
     setGuidedQuestions([]); setGuidedStep(0); setGuidedAnswers({}); setShowCustom(false); setCustomText('')
     setDebugFeedback(''); setForm({ name: '', description: '', category_id: '' })
     setSelectedImproveApp(null); setImproveFeedback('')
@@ -412,13 +417,25 @@ export default function AICreatePage() {
       )}
       {codeText && <CodeViewer codeRef={codeRef} code={codeText} streaming={isStreaming} />}
       {phase === 'error' && (
-        <div className="flex items-start gap-3.5 p-4 sm:p-5 rounded-2xl bg-red-500/8 border border-red-500/15">
-          <div className="w-9 h-9 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
-            <AlertCircle size={16} className="text-red-400" />
+        <div className={`flex items-start gap-3.5 p-4 sm:p-5 rounded-2xl border ${errorOverloaded ? 'bg-amber-500/8 border-amber-500/15' : 'bg-red-500/8 border-red-500/15'}`}>
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${errorOverloaded ? 'bg-amber-500/15' : 'bg-red-500/15'}`}>
+            {errorOverloaded
+              ? <Clock size={16} className="text-amber-400" />
+              : <AlertCircle size={16} className="text-red-400" />
+            }
           </div>
-          <div className="pt-1">
-            <p className="text-sm font-semibold text-red-300">Error al generar</p>
-            <p className="text-[13px] text-red-400/70 mt-1 leading-relaxed">{errorMsg}</p>
+          <div className="pt-1 min-w-0">
+            <p className={`text-sm font-semibold ${errorOverloaded ? 'text-amber-300' : 'text-red-300'}`}>
+              {errorOverloaded ? 'Modelo saturado' : 'Error al generar'}
+            </p>
+            <p className={`text-[13px] mt-1 leading-relaxed ${errorOverloaded ? 'text-amber-400/80' : 'text-red-400/70'}`}>
+              {errorMsg}
+            </p>
+            {errorDetail && (
+              <p className="text-[11px] text-[var(--text-muted)] mt-2 font-mono break-all opacity-60">
+                {errorDetail}
+              </p>
+            )}
           </div>
         </div>
       )}

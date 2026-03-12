@@ -1124,7 +1124,15 @@ async def _stream(
                 yield evt({"type": "code_chunk", "text": text})
 
     except anthropic.APIError as e:
-        yield evt({"type": "error", "message": f"Error de la API de IA: {e}"})
+        if getattr(e, "type", None) == "overloaded_error" or "overloaded" in str(e).lower():
+            yield evt({
+                "type": "error",
+                "overloaded": True,
+                "message": "El modelo seleccionado está bajo mucha demanda ahora mismo. Prueba con otro modelo o espera unos minutos.",
+                "detail": str(e),
+            })
+        else:
+            yield evt({"type": "error", "message": f"Error de la API de IA: {e}"})
         return
     except Exception as e:
         yield evt({"type": "error", "message": f"Error inesperado: {e}"})
@@ -1475,7 +1483,15 @@ async def _stream_debug(
                 yield evt({"type": "code_chunk", "text": text})
 
     except anthropic.APIError as e:
-        yield evt({"type": "error", "message": f"Error de la API de IA: {e}"})
+        if getattr(e, "type", None) == "overloaded_error" or "overloaded" in str(e).lower():
+            yield evt({
+                "type": "error",
+                "overloaded": True,
+                "message": "El modelo seleccionado está bajo mucha demanda ahora mismo. Prueba con otro modelo o espera unos minutos.",
+                "detail": str(e),
+            })
+        else:
+            yield evt({"type": "error", "message": f"Error de la API de IA: {e}"})
         return
     except Exception as e:
         yield evt({"type": "error", "message": f"Error inesperado: {e}"})
