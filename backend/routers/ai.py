@@ -1235,35 +1235,40 @@ async def suggest_questions(
     try:
         response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=400,
+            max_tokens=600,
             messages=[{
                 "role": "user",
                 "content": (
                     f"{context}\n\n"
-                    "Genera exactamente 3 preguntas cortas y concretas (máximo 12 palabras cada una) "
-                    "que ayudarían a un desarrollador a describir mejor esta app para que la IA la genere correctamente. "
-                    "Las preguntas deben ser útiles y específicas al tipo de app descrita. "
-                    "Responde ÚNICAMENTE con un JSON válido con este formato exacto, sin texto adicional:\n"
-                    '[{"id":"q1","text":"Pregunta aquí"},{"id":"q2","text":"Pregunta aquí"},{"id":"q3","text":"Pregunta aquí"}]'
+                    "Eres un asistente que ayuda a personas sin conocimientos técnicos a describir una app.\n"
+                    "Genera exactamente 3 preguntas en lenguaje cotidiano y sencillo (sin jerga técnica) "
+                    "que ayuden al usuario a concretar su idea. "
+                    "Para cada pregunta genera 3 opciones de respuesta cortas, concretas y variadas, "
+                    "adaptadas específicamente al tipo de app descrita.\n\n"
+                    "Responde ÚNICAMENTE con JSON válido, sin texto adicional:\n"
+                    '[{"id":"q1","text":"Pregunta 1","options":["Op A","Op B","Op C"]},'
+                    '{"id":"q2","text":"Pregunta 2","options":["Op A","Op B","Op C"]},'
+                    '{"id":"q3","text":"Pregunta 3","options":["Op A","Op B","Op C"]}]'
                 ),
             }],
         )
         raw = response.content[0].text.strip()
-        # Strip markdown fences if present
         if "```" in raw:
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
             raw = raw.strip()
         questions = json.loads(raw)
-        if not isinstance(questions, list):
-            raise ValueError("not a list")
+        if not isinstance(questions, list) or not all("options" in q for q in questions):
+            raise ValueError("invalid format")
     except Exception:
-        # Fallback generic questions
         questions = [
-            {"id": "q1", "text": "¿Debe guardar datos entre sesiones?"},
-            {"id": "q2", "text": "¿Qué botones o controles principales necesita?"},
-            {"id": "q3", "text": "¿Usa alguna API externa o datos en tiempo real?"},
+            {"id": "q1", "text": "¿Para qué lo usarías principalmente?",
+             "options": ["Para uso personal del día a día", "Para compartir con otras personas", "Como entretenimiento o juego"]},
+            {"id": "q2", "text": "¿Debe recordar lo que haces entre sesiones?",
+             "options": ["Sí, quiero que guarde todo", "Solo lo más importante", "No hace falta, cada vez empieza de cero"]},
+            {"id": "q3", "text": "¿Qué aspecto visual prefieres?",
+             "options": ["Sencillo y limpio, fácil de leer", "Colorido y llamativo", "Parecido a una app profesional"]},
         ]
 
     return {"questions": questions}

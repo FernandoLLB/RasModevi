@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import {
   Sparkles, ChevronRight, Check, Loader2, AlertCircle,
   Code2, Package, Store, Zap, RotateCcw, Lightbulb,
-  MessageSquare, Wand2, ChevronDown, ChevronUp, Play,
-  WrenchIcon, ArrowRight,
+  MessageSquare, Wand2, ChevronDown, ChevronUp,
+  WrenchIcon, ArrowRight, ArrowLeft, PenLine,
 } from 'lucide-react'
 import DeviceLayout from '../components/layout/DeviceLayout'
 import { storeApi } from '../api/store'
@@ -28,91 +28,107 @@ const DEBUG_STEPS = [
   { id: 'done',        label: '¡Listo!',      Icon: Check },
 ]
 
-// ─── Example prompts ──────────────────────────────────────────────────────
+// ─── Example prompts — ideas originales, no apps típicas de demo ──────────
 const EXAMPLES = [
   {
-    category: 'Juego',
-    color: 'violet',
-    icon: '🎮',
-    name: 'Snake Clásico',
-    description: 'El juego snake clásico donde la serpiente crece al comer manzanas. Incluye marcador de puntos, pantalla de game over con mejor puntuación guardada, y control con teclado y swipe táctil.',
-  },
-  {
-    category: 'Juego',
-    color: 'violet',
-    icon: '🃏',
-    name: 'Memoria de Cartas',
-    description: 'Juego de memoria con cartas de emoji. Tablero de 4×4, animación de volteo, contador de intentos, tiempo transcurrido, y tabla de records guardada.',
-  },
-  {
-    category: 'Herramienta',
-    color: 'cyan',
-    icon: '⏱',
-    name: 'Cronómetro Pro',
-    description: 'Cronómetro con vuelta de tiempos, historial de las últimas 10 vueltas, botón reset, y guardado de la mejor vuelta en memoria persistente.',
-  },
-  {
-    category: 'Herramienta',
-    color: 'cyan',
-    icon: '📝',
-    name: 'Bloc de Notas',
-    description: 'Bloc de notas con búsqueda en tiempo real, guardado automático en base de datos local, lista de notas con fecha y hora, y botón de borrar por nota.',
-  },
-  {
-    category: 'Datos',
+    emoji: '🌱',
+    tag: 'Hogar',
     color: 'emerald',
-    icon: '📊',
-    name: 'Monitor del Sistema',
-    description: 'Dashboard en tiempo real con CPU, RAM y temperatura del sistema usando gráficas de línea con Chart.js. Se actualiza cada 2 segundos y muestra histórico de los últimos 60 puntos.',
+    name: 'Monitor de Plantas',
+    description: 'App para llevar el registro de mis plantas de casa. Quiero añadir cada planta con su nombre y foto (emoji), marcar cuándo la riego, y que me muestre cuántos días han pasado desde el último riego con un indicador de colores (verde, amarillo, rojo). Los datos se guardan para no perderlos.',
   },
   {
-    category: 'Datos',
-    color: 'emerald',
-    icon: '🌤',
-    name: 'Widget del Tiempo',
-    description: 'App de clima que detecta la ubicación por IP y muestra temperatura actual, descripción del tiempo, humedad y viento usando la API de Open-Meteo. Diseño tipo widget moderno.',
+    emoji: '🎲',
+    tag: 'Diversión',
+    color: 'violet',
+    name: 'Ruleta de Decisiones',
+    description: 'Una ruleta giratoria para tomar decisiones. El usuario puede añadir opciones de texto (qué comer, qué película ver, etc.), girar la ruleta con un botón y que se anime girando antes de mostrar el resultado. Las opciones se guardan entre sesiones.',
   },
   {
-    category: 'Creativo',
+    emoji: '💧',
+    tag: 'Salud',
+    color: 'cyan',
+    name: 'Contador de Agua',
+    description: 'App para controlar cuánta agua bebo al día. Botón grande para sumar vasos, meta diaria configurable (por defecto 8 vasos), barra de progreso visual, historial de los últimos 7 días con gráfica de barras, y se reinicia automáticamente cada día a medianoche.',
+  },
+  {
+    emoji: '📚',
+    tag: 'Estudio',
     color: 'amber',
-    icon: '🎹',
-    name: 'Piano Virtual',
-    description: 'Piano virtual con 2 octavas tocable con teclado del ordenador y click/touch en las teclas. Síntesis de sonido con Web Audio API. Muestra qué tecla del teclado corresponde a cada nota.',
+    name: 'Flashcards de Estudio',
+    description: 'Tarjetas de memoria para estudiar. El usuario crea tarjetas con una pregunta por delante y la respuesta por detrás. Al estudiar, las tarjetas aparecen en orden aleatorio, se voltean con un click, y puede marcarlas como "sabida" o "repasar". El sistema guarda el progreso.',
   },
   {
-    category: 'Productividad',
+    emoji: '🎨',
+    tag: 'Creativo',
     color: 'rose',
-    icon: '🍅',
-    name: 'Timer Pomodoro',
-    description: 'Timer pomodoro con ciclos configurables (trabajo 25 min / descanso 5 min), sonido de campana al terminar con Web Audio, contador de sesiones completadas y estadísticas del día guardadas.',
+    name: 'Generador de Paletas',
+    description: 'Genera paletas de 5 colores armoniosas aleatoriamente. Muestra los colores como rectángulos grandes con su código HEX debajo. Botón "Copiar" en cada color, botón "Nueva paleta" para generar otra, y sección de favoritos donde guardar las paletas que más gusten.',
+  },
+  {
+    emoji: '✏️',
+    tag: 'Creativo',
+    color: 'indigo',
+    name: 'Pizarra Digital',
+    description: 'Canvas de dibujo libre con colores seleccionables, varios grosores de trazo, goma de borrar, botón de limpiar todo y botón para descargar el dibujo como imagen PNG. El trazo debe ser suave y funcionar bien con el dedo en pantalla táctil.',
+  },
+  {
+    emoji: '🌙',
+    tag: 'Salud',
+    color: 'indigo',
+    name: 'Diario de Sueño',
+    description: 'Registro de horas de sueño. Cada día puedo añadir a qué hora me acosté y me levanté, y la app calcula las horas dormidas. Muestra la semana actual con una gráfica de barras, el promedio semanal y si estoy por encima o debajo de 8 horas. Los registros se guardan.',
+  },
+  {
+    emoji: '🔄',
+    tag: 'Utilidad',
+    color: 'teal',
+    name: 'Conversor de Unidades',
+    description: 'Conversor de unidades con varias categorías: temperatura (°C, °F, K), peso (kg, lb, oz), longitud (km, mi, m, ft) y volumen (L, gal, ml). Interfaz con dos campos: escribo el valor en uno y se actualiza el otro al instante. Cada categoría tiene su propio color.',
   },
 ]
 
 const colorMap = {
-  violet: 'bg-violet-500/10 border-violet-500/20 text-violet-300 hover:bg-violet-500/20',
-  cyan:   'bg-cyan-500/10 border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/20',
-  emerald:'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20',
-  amber:  'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20',
-  rose:   'bg-rose-500/10 border-rose-500/20 text-rose-300 hover:bg-rose-500/20',
+  emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20',
+  violet:  'bg-violet-500/10 border-violet-500/20 text-violet-300 hover:bg-violet-500/20',
+  cyan:    'bg-cyan-500/10 border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/20',
+  amber:   'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20',
+  rose:    'bg-rose-500/10 border-rose-500/20 text-rose-300 hover:bg-rose-500/20',
+  indigo:  'bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20',
+  teal:    'bg-teal-500/10 border-teal-500/20 text-teal-300 hover:bg-teal-500/20',
 }
 
-// ─── Main component ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AICreatePage() {
   const { isDeveloper } = useAuth()
-  const [categories, setCategories]     = useState([])
-  const [form, setForm]                 = useState({ name: '', description: '', category_id: '' })
-  const [phase, setPhase]               = useState('idle')   // idle | guided | streaming | done | error | debug_form | debug_streaming
+  const [categories, setCategories] = useState([])
+
+  // Form data
+  const [form, setForm] = useState({ name: '', description: '', category_id: '' })
+
+  // UI mode: 'libre' | 'guiado'
+  const [mode, setMode] = useState('libre')
+
+  // Global phase: 'idle' | 'guided_questions' | 'streaming' | 'done' | 'error' | 'debug_streaming'
+  const [phase, setPhase] = useState('idle')
+
+  // Generation/streaming state
   const [currentStep, setCurrentStep]   = useState(null)
   const [codeText, setCodeText]         = useState('')
   const [errorMsg, setErrorMsg]         = useState('')
   const [resultApp, setResultApp]       = useState(null)
-  const [showExamples, setShowExamples] = useState(false)
   const [isDebugMode, setIsDebugMode]   = useState(false)
 
-  // Guided mode
-  const [guidedLoading, setGuidedLoading] = useState(false)
-  const [guidedQuestions, setGuidedQuestions] = useState([])
-  const [guidedAnswers, setGuidedAnswers]     = useState({})
+  // Examples
+  const [showExamples, setShowExamples] = useState(false)
+
+  // Guided mode state
+  const [guidedLoading, setGuidedLoading]       = useState(false)
+  const [guidedQuestions, setGuidedQuestions]   = useState([])  // [{id, text, options}]
+  const [guidedStep, setGuidedStep]             = useState(0)
+  const [guidedAnswers, setGuidedAnswers]        = useState({}) // {id: answer_string}
+  const [showCustom, setShowCustom]             = useState(false)
+  const [customText, setCustomText]             = useState('')
 
   // Debug mode
   const [debugFeedback, setDebugFeedback] = useState('')
@@ -129,11 +145,12 @@ export default function AICreatePage() {
     if (codeRef.current) codeRef.current.scrollTop = codeRef.current.scrollHeight
   }, [codeText])
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // ── Token helper ──────────────────────────────────────────────────────────
   const getToken = async () => {
     try { return await refreshTokens() } catch { return localStorage.getItem('access_token') }
   }
 
+  // ── SSE helper ────────────────────────────────────────────────────────────
   const startSSE = (url, onDone) => {
     const es = new EventSource(url)
     esRef.current = es
@@ -162,11 +179,14 @@ export default function AICreatePage() {
     }
   }
 
-  // ── Standard generation ──────────────────────────────────────────────────
-  const handleSubmit = async (e) => {
+  // ── Libre: standard generation ────────────────────────────────────────────
+  const handleLibreSubmit = async (e) => {
     e?.preventDefault()
     if (!form.name.trim() || !form.description.trim()) return
+    await doGenerate(form.name, form.description, form.category_id)
+  }
 
+  const doGenerate = async (name, description, category_id) => {
     const token = await getToken()
     if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
 
@@ -178,19 +198,16 @@ export default function AICreatePage() {
     setIsDebugMode(false)
 
     const qs = new URLSearchParams({
-      name: form.name,
-      description: form.description,
-      token,
-      ...(form.category_id ? { category_id: form.category_id } : {}),
+      name, description, token,
+      ...(category_id ? { category_id } : {}),
     })
-
     startSSE(`${STORE_BASE}/api/ai/create-app?${qs}`, (data) => {
       setResultApp({ id: data.app_id, slug: data.app_slug, installed_id: data.installed_id, message: data.message })
     })
   }
 
-  // ── Guided mode ──────────────────────────────────────────────────────────
-  const handleFetchQuestions = async () => {
+  // ── Guided: fetch questions ───────────────────────────────────────────────
+  const handleStartGuided = async () => {
     if (!form.name.trim()) return
     setGuidedLoading(true)
     try {
@@ -202,59 +219,74 @@ export default function AICreatePage() {
       })
       const data = await res.json()
       setGuidedQuestions(data.questions || [])
-      setGuidedAnswers({})
-      setPhase('guided')
     } catch {
-      // Fall back to generic questions
       setGuidedQuestions([
-        { id: 'q1', text: '¿Debe guardar datos entre sesiones?' },
-        { id: 'q2', text: '¿Qué botones o controles principales necesita?' },
-        { id: 'q3', text: '¿Usa alguna API externa o datos en tiempo real?' },
+        { id: 'q1', text: '¿Para qué lo usarías principalmente?',
+          options: ['Para uso personal del día a día', 'Para compartir con otras personas', 'Como entretenimiento o juego'] },
+        { id: 'q2', text: '¿Debe recordar lo que haces entre sesiones?',
+          options: ['Sí, quiero que guarde todo', 'Solo lo más importante', 'No hace falta'] },
+        { id: 'q3', text: '¿Qué aspecto visual prefieres?',
+          options: ['Sencillo y limpio', 'Colorido y llamativo', 'Como una app profesional'] },
       ])
-      setGuidedAnswers({})
-      setPhase('guided')
     } finally {
       setGuidedLoading(false)
+      setGuidedStep(0)
+      setGuidedAnswers({})
+      setShowCustom(false)
+      setCustomText('')
+      setPhase('guided_questions')
     }
   }
 
-  const handleGuidedSubmit = (e) => {
-    e.preventDefault()
-    const answeredParts = guidedQuestions
-      .filter(q => guidedAnswers[q.id]?.trim())
-      .map(q => `- ${q.text}: ${guidedAnswers[q.id].trim()}`)
-    const extra = answeredParts.length ? `\n\nDetalles adicionales:\n${answeredParts.join('\n')}` : ''
-    const fullDescription = (form.description.trim() || form.name) + extra
-    setForm(f => ({ ...f, description: fullDescription }))
-    // Trigger generation on next render tick
-    setTimeout(() => {
-      handleSubmitWithDescription(form.name, fullDescription, form.category_id)
-    }, 0)
+  // ── Guided: advance to next question ─────────────────────────────────────
+  const handleGuidedNext = () => {
+    const q = guidedQuestions[guidedStep]
+    // Save current answer (chip or custom text)
+    const answer = showCustom ? customText.trim() : (guidedAnswers[q.id] || '')
+    const newAnswers = { ...guidedAnswers, [q.id]: answer }
+    setGuidedAnswers(newAnswers)
+
+    if (guidedStep < guidedQuestions.length - 1) {
+      setGuidedStep(s => s + 1)
+      setShowCustom(false)
+      setCustomText('')
+    } else {
+      // All questions done → compose description and generate
+      const parts = guidedQuestions
+        .map(gq => ({ text: gq.text, answer: newAnswers[gq.id] }))
+        .filter(p => p.answer)
+        .map(p => `- ${p.text}: ${p.answer}`)
+      const base = form.description.trim() || form.name
+      const fullDescription = parts.length
+        ? `${base}\n\nDetalles adicionales:\n${parts.join('\n')}`
+        : base
+      doGenerate(form.name, fullDescription, form.category_id)
+    }
   }
 
-  const handleSubmitWithDescription = async (name, description, category_id) => {
-    const token = await getToken()
-    if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
-
-    setPhase('streaming')
-    setCurrentStep('connecting')
-    setCodeText('')
-    setErrorMsg('')
-    setResultApp(null)
-
-    const qs = new URLSearchParams({
-      name,
-      description,
-      token,
-      ...(category_id ? { category_id } : {}),
-    })
-
-    startSSE(`${STORE_BASE}/api/ai/create-app?${qs}`, (data) => {
-      setResultApp({ id: data.app_id, slug: data.app_slug, installed_id: data.installed_id, message: data.message })
-    })
+  const handleGuidedBack = () => {
+    if (guidedStep === 0) {
+      setPhase('idle')
+    } else {
+      setGuidedStep(s => s - 1)
+      setShowCustom(false)
+      setCustomText('')
+    }
   }
 
-  // ── Debug mode ───────────────────────────────────────────────────────────
+  const selectChip = (qId, option) => {
+    setGuidedAnswers(a => ({ ...a, [qId]: option }))
+    setShowCustom(false)
+    setCustomText('')
+  }
+
+  const currentGuidedAnswer = () => {
+    if (guidedQuestions.length === 0) return ''
+    const q = guidedQuestions[guidedStep]
+    return showCustom ? customText.trim() : (guidedAnswers[q?.id] || '')
+  }
+
+  // ── Debug ─────────────────────────────────────────────────────────────────
   const handleDebugSubmit = async (e) => {
     e.preventDefault()
     if (!debugFeedback.trim() || !resultApp?.installed_id) return
@@ -273,7 +305,6 @@ export default function AICreatePage() {
       feedback: debugFeedback,
       token,
     })
-
     startSSE(`${DEVICE_BASE}/api/ai/debug-app?${qs}`, (data) => {
       setResultApp(prev => ({
         ...prev,
@@ -286,7 +317,7 @@ export default function AICreatePage() {
     })
   }
 
-  // ── Reset ────────────────────────────────────────────────────────────────
+  // ── Reset ─────────────────────────────────────────────────────────────────
   const reset = () => {
     esRef.current?.close()
     setPhase('idle')
@@ -296,13 +327,17 @@ export default function AICreatePage() {
     setResultApp(null)
     setIsDebugMode(false)
     setGuidedQuestions([])
+    setGuidedStep(0)
     setGuidedAnswers({})
+    setShowCustom(false)
+    setCustomText('')
     setDebugFeedback('')
     setForm({ name: '', description: '', category_id: '' })
   }
 
-  // ── Derived ──────────────────────────────────────────────────────────────
-  const activeSteps = (phase === 'debug_streaming' || (phase === 'done' && isDebugMode)) ? DEBUG_STEPS : STEPS
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const activeSteps = (phase === 'debug_streaming' || (phase === 'done' && isDebugMode))
+    ? DEBUG_STEPS : STEPS
   const stepIdx = activeSteps.findIndex(s => s.id === currentStep)
   const isStreaming = phase === 'streaming' || phase === 'debug_streaming'
 
@@ -322,11 +357,31 @@ export default function AICreatePage() {
           </div>
         </div>
 
-        {/* ════════════════════════ IDLE FORM ════════════════════════ */}
+        {/* ══════════════════════════ IDLE PHASE ══════════════════════════ */}
         {phase === 'idle' && (
           <div className="space-y-4">
 
-            {/* Example prompts toggle */}
+            {/* Mode toggle */}
+            <div className="flex rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.02]">
+              {[
+                { key: 'libre',  label: 'Modo libre',   icon: <PenLine size={13} /> },
+                { key: 'guiado', label: 'Modo guiado',  icon: <Wand2 size={13} /> },
+              ].map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setMode(key)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all ${
+                    mode === key
+                      ? 'bg-gradient-to-r from-violet-500/20 to-indigo-500/20 text-white border-b-2 border-indigo-400'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {icon}{label}
+                </button>
+              ))}
+            </div>
+
+            {/* Examples toggle */}
             <button
               onClick={() => setShowExamples(v => !v)}
               className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-slate-400 text-sm hover:text-white hover:bg-white/[0.06] transition-colors"
@@ -349,165 +404,162 @@ export default function AICreatePage() {
                     }}
                     className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-colors ${colorMap[ex.color]}`}
                   >
-                    <span className="text-xl shrink-0 mt-0.5">{ex.icon}</span>
+                    <span className="text-xl shrink-0 mt-0.5">{ex.emoji}</span>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-medium opacity-60">{ex.category}</span>
-                      </div>
+                      <span className="text-xs opacity-50 block mb-0.5">{ex.tag}</span>
                       <p className="text-sm font-medium leading-snug">{ex.name}</p>
-                      <p className="text-xs opacity-60 mt-0.5 line-clamp-2">{ex.description}</p>
+                      <p className="text-xs opacity-55 mt-0.5 line-clamp-2">{ex.description}</p>
                     </div>
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Main form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="glass rounded-2xl p-5 border border-white/[0.06] space-y-4">
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                    Nombre de la app
-                  </label>
-                  <input
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Ej: Calculadora Científica"
-                    required
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-sm font-medium text-slate-300">
-                      Descripción detallada
-                    </label>
-                    {form.name.trim() && isDeveloper && (
-                      <button
-                        type="button"
-                        onClick={handleFetchQuestions}
-                        disabled={guidedLoading}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs hover:bg-violet-500/20 transition-colors disabled:opacity-50"
-                      >
-                        {guidedLoading
-                          ? <Loader2 size={11} className="animate-spin" />
-                          : <Wand2 size={11} />
-                        }
-                        Modo guiado
-                      </button>
-                    )}
+            {/* ── Libre form ── */}
+            {mode === 'libre' && (
+              <form onSubmit={handleLibreSubmit} className="space-y-4">
+                <div className="glass rounded-2xl p-5 border border-white/[0.06] space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Nombre de la app</label>
+                    <input
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Ej: Monitor de Plantas"
+                      required
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                    />
                   </div>
-                  <textarea
-                    value={form.description}
-                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    placeholder="Describe qué hace la app, sus funciones, botones, si guarda datos, si usa sensores… Cuanto más detallada, mejor resultado."
-                    required
-                    rows={5}
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-all text-sm resize-none"
-                  />
-                  <p className="text-xs text-slate-500 mt-1.5">
-                    Cuanto más detallada la descripción, mejor resultado. Puedes usar el <strong className="text-slate-400">Modo guiado</strong> para que la IA te haga preguntas relevantes.
-                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Descripción detallada</label>
+                    <textarea
+                      value={form.description}
+                      onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="Describe qué hace la app, sus funciones, botones, si guarda datos… Cuanto más detallada, mejor resultado."
+                      required
+                      rows={5}
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-all text-sm resize-none"
+                    />
+                    <p className="text-xs text-slate-500 mt-1.5">
+                      Si prefieres que la IA te haga preguntas para ayudarte, usa el <strong className="text-slate-400">Modo guiado</strong>.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                      Categoría <span className="text-slate-600">(opcional)</span>
+                    </label>
+                    <select
+                      value={form.category_id}
+                      onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-slate-300 focus:outline-none focus:border-indigo-500/50 transition-all text-sm appearance-none cursor-pointer"
+                    >
+                      <option value="" style={{ background: '#0f0f1a' }}>Sin categoría</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id} style={{ background: '#0f0f1a' }}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                    Categoría <span className="text-slate-600">(opcional)</span>
-                  </label>
-                  <select
-                    value={form.category_id}
-                    onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-slate-300 focus:outline-none focus:border-indigo-500/50 transition-all text-sm appearance-none cursor-pointer"
-                  >
-                    <option value="" style={{ background: '#0f0f1a' }}>Sin categoría</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id} style={{ background: '#0f0f1a' }}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                {!isDeveloper && <DeveloperWarning />}
+
+                <button
+                  type="submit"
+                  disabled={!isDeveloper || !form.name.trim() || !form.description.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold text-sm hover:from-violet-400 hover:to-indigo-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20"
+                >
+                  <Sparkles size={16} />
+                  Generar con Claude
+                </button>
+              </form>
+            )}
+
+            {/* ── Guided form (start) ── */}
+            {mode === 'guiado' && (
+              <div className="space-y-4">
+                <div className="glass rounded-2xl p-5 border border-violet-500/15 space-y-4">
+                  <p className="text-sm text-slate-400">
+                    La IA te hará <strong className="text-violet-300">3 preguntas</strong> con opciones para concretar tu idea antes de generar la app.
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Nombre de la app</label>
+                    <input
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Ej: Diario de Sueño"
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50 transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                      ¿Alguna idea inicial? <span className="text-slate-600">(opcional)</span>
+                    </label>
+                    <input
+                      value={form.description}
+                      onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="Ej: quiero registrar mis horas de sueño cada día…"
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50 transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                      Categoría <span className="text-slate-600">(opcional)</span>
+                    </label>
+                    <select
+                      value={form.category_id}
+                      onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-slate-300 focus:outline-none focus:border-violet-500/50 transition-all text-sm appearance-none cursor-pointer"
+                    >
+                      <option value="" style={{ background: '#0f0f1a' }}>Sin categoría</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id} style={{ background: '#0f0f1a' }}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
+                {!isDeveloper && <DeveloperWarning />}
+
+                <button
+                  onClick={handleStartGuided}
+                  disabled={!isDeveloper || !form.name.trim() || guidedLoading}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold text-sm hover:from-violet-400 hover:to-indigo-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20"
+                >
+                  {guidedLoading
+                    ? <><Loader2 size={16} className="animate-spin" /> Preparando preguntas…</>
+                    : <><Wand2 size={16} /> Empezar modo guiado</>
+                  }
+                </button>
               </div>
-
-              {!isDeveloper && (
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                  <AlertCircle size={16} className="text-amber-400 mt-0.5 shrink-0" />
-                  <p className="text-sm text-amber-300">
-                    Necesitas una cuenta <strong>developer</strong> para crear apps.{' '}
-                    <Link to="/login" className="underline">Inicia sesión</Link> con una cuenta developer o admin.
-                  </p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={!isDeveloper || !form.name.trim() || !form.description.trim()}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold text-sm hover:from-violet-400 hover:to-indigo-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20"
-              >
-                <Sparkles size={16} />
-                Generar con Claude
-              </button>
-            </form>
+            )}
           </div>
         )}
 
-        {/* ════════════════════════ GUIDED MODE ════════════════════════ */}
-        {phase === 'guided' && (
-          <form onSubmit={handleGuidedSubmit} className="space-y-4">
-            <div className="glass rounded-2xl p-5 border border-violet-500/20 space-y-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Wand2 size={15} className="text-violet-400" />
-                <span className="text-sm font-medium text-violet-300">Modo guiado — {form.name}</span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Responde estas preguntas para que Claude entienda mejor tu idea. Puedes dejar en blanco las que no apliquen.
-              </p>
-
-              {form.description.trim() && (
-                <div className="bg-white/[0.03] rounded-xl px-4 py-3 border border-white/[0.06]">
-                  <p className="text-xs text-slate-500 mb-1">Descripción inicial</p>
-                  <p className="text-sm text-slate-300">{form.description}</p>
-                </div>
-              )}
-
-              {guidedQuestions.map((q, i) => (
-                <div key={q.id}>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                    <span className="text-slate-500 mr-2">{i + 1}.</span>{q.text}
-                  </label>
-                  <input
-                    value={guidedAnswers[q.id] || ''}
-                    onChange={e => setGuidedAnswers(a => ({ ...a, [q.id]: e.target.value }))}
-                    placeholder="Tu respuesta aquí (opcional)..."
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/50 transition-all text-sm"
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPhase('idle')}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-400 text-sm hover:text-white hover:bg-white/[0.06] transition-colors"
-              >
-                Volver
-              </button>
-              <button
-                type="submit"
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold text-sm hover:from-violet-400 hover:to-indigo-500 transition-all shadow-lg shadow-indigo-500/20"
-              >
-                <Play size={14} />
-                Generar con estas respuestas
-              </button>
-            </div>
-          </form>
+        {/* ══════════════════════ GUIDED QUESTIONS ══════════════════════ */}
+        {phase === 'guided_questions' && guidedQuestions.length > 0 && (
+          <GuidedQuestion
+            questions={guidedQuestions}
+            step={guidedStep}
+            answers={guidedAnswers}
+            showCustom={showCustom}
+            customText={customText}
+            onSelectChip={selectChip}
+            onToggleCustom={() => {
+              setShowCustom(v => !v)
+              if (!showCustom) {
+                const q = guidedQuestions[guidedStep]
+                setGuidedAnswers(a => ({ ...a, [q.id]: '' }))
+              }
+              setCustomText('')
+            }}
+            onCustomTextChange={setCustomText}
+            onNext={handleGuidedNext}
+            onBack={handleGuidedBack}
+            hasAnswer={!!currentGuidedAnswer()}
+          />
         )}
 
-        {/* ════════════════ STREAMING / RESULT / DEBUG ════════════════ */}
-        {(isStreaming || phase === 'done' || phase === 'error' || phase === 'debug_form') && (
+        {/* ════════════════════ STREAMING / RESULT ════════════════════ */}
+        {(isStreaming || phase === 'done' || phase === 'error') && (
           <div className="space-y-4">
 
             {/* Progress steps */}
@@ -519,9 +571,7 @@ export default function AICreatePage() {
                     const isPast   = idx < stepIdx
                     const isActive = step.id === currentStep && isStreaming
                     const isDone   = step.id === 'done' && phase === 'done'
-
                     if (step.id === 'done' && phase !== 'done') return null
-
                     return (
                       <div key={step.id} className="flex items-center gap-1">
                         {idx > 0 && <ChevronRight size={11} className="text-slate-700" />}
@@ -531,10 +581,7 @@ export default function AICreatePage() {
                           isActive ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
                                      'text-slate-700'
                         }`}>
-                          {isActive
-                            ? <Loader2 size={11} className="animate-spin" />
-                            : <Icon size={11} />
-                          }
+                          {isActive ? <Loader2 size={11} className="animate-spin" /> : <Icon size={11} />}
                           <span>{step.label}</span>
                         </div>
                       </div>
@@ -554,9 +601,7 @@ export default function AICreatePage() {
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/50" />
                   </div>
                   <span className="text-xs text-slate-500 font-mono ml-1">index.html</span>
-                  <span className="ml-auto text-xs text-slate-600 font-mono">
-                    {codeText.length.toLocaleString()} chars
-                  </span>
+                  <span className="ml-auto text-xs text-slate-600 font-mono">{codeText.length.toLocaleString()} chars</span>
                 </div>
                 <pre
                   ref={codeRef}
@@ -564,14 +609,12 @@ export default function AICreatePage() {
                   style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
                 >
                   {codeText}
-                  {isStreaming && (
-                    <span className="animate-pulse text-indigo-400">▋</span>
-                  )}
+                  {isStreaming && <span className="animate-pulse text-indigo-400">▋</span>}
                 </pre>
               </div>
             )}
 
-            {/* Error state */}
+            {/* Error */}
             {phase === 'error' && (
               <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
                 <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
@@ -582,7 +625,7 @@ export default function AICreatePage() {
               </div>
             )}
 
-            {/* Success state */}
+            {/* Success */}
             {phase === 'done' && resultApp && (
               <div className="glass rounded-2xl p-5 border border-emerald-500/20 bg-emerald-500/5">
                 <div className="flex items-center gap-3 mb-4">
@@ -591,9 +634,7 @@ export default function AICreatePage() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white">{resultApp.message}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      App generada e instalada en el dispositivo.
-                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">App generada e instalada en el dispositivo.</p>
                   </div>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -615,16 +656,16 @@ export default function AICreatePage() {
               </div>
             )}
 
-            {/* ── Debug/improve form (shown after done) ── */}
+            {/* Debug/improve panel */}
             {phase === 'done' && resultApp?.installed_id && (
-              <DebugForm
+              <DebugPanel
                 feedback={debugFeedback}
                 onFeedbackChange={setDebugFeedback}
                 onSubmit={handleDebugSubmit}
               />
             )}
 
-            {/* Reset button */}
+            {/* Reset */}
             {(phase === 'done' || phase === 'error') && (
               <button
                 onClick={reset}
@@ -636,13 +677,124 @@ export default function AICreatePage() {
             )}
           </div>
         )}
+
       </div>
     </DeviceLayout>
   )
 }
 
-// ─── Debug/improve sub-component ─────────────────────────────────────────
-function DebugForm({ feedback, onFeedbackChange, onSubmit }) {
+// ─── Guided question card (one at a time) ────────────────────────────────────
+function GuidedQuestion({
+  questions, step, answers, showCustom, customText,
+  onSelectChip, onToggleCustom, onCustomTextChange, onNext, onBack, hasAnswer,
+}) {
+  const q = questions[step]
+  const isLast = step === questions.length - 1
+  const selectedChip = !showCustom ? (answers[q.id] || null) : null
+
+  return (
+    <div className="space-y-4">
+      {/* Progress bar */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500"
+            style={{ width: `${((step + 1) / questions.length) * 100}%` }}
+          />
+        </div>
+        <span className="text-xs text-slate-500 shrink-0">
+          {step + 1} / {questions.length}
+        </span>
+      </div>
+
+      {/* Question card */}
+      <div className="glass rounded-2xl p-5 border border-violet-500/15 space-y-4">
+        <p className="text-base font-semibold text-white leading-snug">{q.text}</p>
+
+        {/* Option chips */}
+        <div className="flex flex-col gap-2">
+          {q.options?.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onSelectChip(q.id, opt)}
+              className={`w-full text-left px-4 py-3 rounded-xl border text-sm transition-all min-h-[48px] ${
+                selectedChip === opt
+                  ? 'bg-violet-500/20 border-violet-500/40 text-white font-medium'
+                  : 'bg-white/[0.03] border-white/[0.07] text-slate-300 hover:bg-white/[0.06] hover:border-white/[0.12]'
+              }`}
+            >
+              {selectedChip === opt && <span className="mr-2 text-violet-400">✓</span>}
+              {opt}
+            </button>
+          ))}
+
+          {/* Custom option */}
+          <button
+            type="button"
+            onClick={onToggleCustom}
+            className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl border text-sm transition-all min-h-[48px] ${
+              showCustom
+                ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
+                : 'bg-white/[0.03] border-white/[0.07] text-slate-500 hover:text-slate-300 hover:bg-white/[0.06]'
+            }`}
+          >
+            <PenLine size={14} />
+            <span>Escribir mi propia respuesta…</span>
+          </button>
+          {showCustom && (
+            <textarea
+              autoFocus
+              value={customText}
+              onChange={e => onCustomTextChange(e.target.value)}
+              placeholder="Escribe aquí tu respuesta personalizada…"
+              rows={2}
+              className="w-full bg-white/[0.04] border border-indigo-500/30 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all text-sm resize-none"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-400 text-sm hover:text-white hover:bg-white/[0.06] transition-colors min-h-[48px]"
+        >
+          <ArrowLeft size={14} />
+          {step === 0 ? 'Volver' : 'Anterior'}
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold text-sm hover:from-violet-400 hover:to-indigo-500 transition-all shadow-lg shadow-indigo-500/20 min-h-[48px]"
+        >
+          {isLast
+            ? <><Sparkles size={14} /> Generar app</>
+            : <>Siguiente <ArrowRight size={14} /></>
+          }
+        </button>
+      </div>
+
+      {/* Skip link */}
+      {!hasAnswer && (
+        <p className="text-center">
+          <button
+            type="button"
+            onClick={onNext}
+            className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
+          >
+            Saltar esta pregunta
+          </button>
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Debug / improve panel ────────────────────────────────────────────────────
+function DebugPanel({ feedback, onFeedbackChange, onSubmit }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -663,12 +815,12 @@ function DebugForm({ feedback, onFeedbackChange, onSubmit }) {
       {open && (
         <form onSubmit={onSubmit} className="px-5 pb-5 space-y-3 border-t border-white/[0.04]">
           <p className="text-xs text-slate-400 pt-3">
-            Describe qué funciona, qué no funciona y qué quieres añadir o cambiar. Claude regenerará la app completa aplicando tus cambios.
+            Describe qué funciona bien, qué falla y qué quieres añadir o cambiar. Claude regenerará la app completa aplicando tus cambios.
           </p>
           <textarea
             value={feedback}
             onChange={e => onFeedbackChange(e.target.value)}
-            placeholder={`Ej: "El botón de reset no hace nada. Quiero que también muestre la mejor puntuación de todas las partidas y que los colores sean más vibrantes."`}
+            placeholder={`Ej: "El botón de reset no hace nada. Quiero que también guarde el historial de las últimas 10 partidas y que los colores sean más vibrantes."`}
             required
             rows={4}
             className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-all text-sm resize-none"
@@ -683,6 +835,19 @@ function DebugForm({ feedback, onFeedbackChange, onSubmit }) {
           </button>
         </form>
       )}
+    </div>
+  )
+}
+
+// ─── Developer warning ────────────────────────────────────────────────────────
+function DeveloperWarning() {
+  return (
+    <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+      <AlertCircle size={16} className="text-amber-400 mt-0.5 shrink-0" />
+      <p className="text-sm text-amber-300">
+        Necesitas una cuenta <strong>developer</strong> para crear apps.{' '}
+        <Link to="/login" className="underline">Inicia sesión</Link> con una cuenta developer o admin.
+      </p>
     </div>
   )
 }
