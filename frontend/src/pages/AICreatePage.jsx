@@ -33,6 +33,34 @@ const DEBUG_STEPS = [
   { id: 'done',        label: 'Listo',        Icon: Check },
 ]
 
+const MODELS = [
+  {
+    id: 'claude-haiku-4-5-20251001',
+    name: 'Haiku',
+    tagline: 'Rápido y económico',
+    detail: 'Prototipos y apps simples',
+    intelligence: 1,
+    cost: 1,
+  },
+  {
+    id: 'claude-sonnet-4-6',
+    name: 'Sonnet',
+    tagline: 'Equilibrado',
+    detail: 'Recomendado',
+    intelligence: 2,
+    cost: 2,
+    badge: 'Recomendado',
+  },
+  {
+    id: 'claude-opus-4-6',
+    name: 'Opus',
+    tagline: 'Máxima calidad',
+    detail: 'Apps complejas',
+    intelligence: 3,
+    cost: 3,
+  },
+]
+
 const EXAMPLES = [
   { emoji: '🌱', name: 'Monitor de Plantas',     desc: 'Registro de riego con alertas por colores',
     full: 'App para llevar el registro de mis plantas de casa. Quiero añadir cada planta con su nombre y foto (emoji), marcar cuándo la riego, y que me muestre cuántos días han pasado desde el último riego con un indicador de colores (verde, amarillo, rojo). Los datos se guardan para no perderlos.' },
@@ -77,6 +105,7 @@ export default function AICreatePage() {
   const [customText, setCustomText]           = useState('')
 
   const [debugFeedback, setDebugFeedback] = useState('')
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-6')
 
   // ── Improve tab state ────────────────────────────────────────────────────
   const [mainTab, setMainTab]                   = useState('crear')
@@ -162,7 +191,7 @@ export default function AICreatePage() {
     const token = await getToken()
     if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
     setPhase('streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg(''); setResultApp(null); setIsDebugMode(false)
-    const qs = new URLSearchParams({ name, description, token, ...(category_id ? { category_id } : {}) })
+    const qs = new URLSearchParams({ name, description, token, model: selectedModel, ...(category_id ? { category_id } : {}) })
     startSSE(`${STORE_BASE}/api/ai/create-app?${qs}`, (d) => {
       setResultApp({ id: d.app_id, slug: d.app_slug, installed_id: d.installed_id, message: d.message })
     })
@@ -232,7 +261,7 @@ export default function AICreatePage() {
     const token = await getToken()
     if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
     setPhase('debug_streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg(''); setIsDebugMode(true)
-    const qs = new URLSearchParams({ installed_id: resultApp.installed_id, feedback: debugFeedback, token })
+    const qs = new URLSearchParams({ installed_id: resultApp.installed_id, feedback: debugFeedback, token, model: selectedModel })
     startSSE(`${DEVICE_BASE}/api/ai/debug-app?${qs}`, (d) => {
       setResultApp(prev => ({ ...prev, id: d.app_id ?? prev.id, slug: d.app_slug ?? prev.slug, installed_id: d.installed_id ?? prev.installed_id, message: d.message }))
       setDebugFeedback('')
@@ -283,7 +312,7 @@ export default function AICreatePage() {
     setIsDebugMode(true); setShowPublish(false); setPublishResult(null)
     const installedId = selectedImproveApp.id
     const appName = selectedImproveApp.store_app?.name ?? `App #${installedId}`
-    const qs = new URLSearchParams({ installed_id: installedId, feedback: improveFeedback, token })
+    const qs = new URLSearchParams({ installed_id: installedId, feedback: improveFeedback, token, model: selectedModel })
     startSSE(`${DEVICE_BASE}/api/ai/debug-app?${qs}`, (d) => {
       setResultApp({
         id: d.app_id ?? selectedImproveApp.store_app?.id,
@@ -533,6 +562,7 @@ export default function AICreatePage() {
                         </div>
                         <CategorySelect value={form.category_id}
                           onChange={v => setForm(f => ({ ...f, category_id: v }))} categories={categories} />
+                        <ModelSelector value={selectedModel} onChange={setSelectedModel} />
                       </div>
                       {!isDeveloper && <DeveloperWarning />}
                       <PrimaryButton type="submit"
@@ -554,6 +584,7 @@ export default function AICreatePage() {
                           placeholder="Ej: quiero registrar mis horas de sueño cada día…" />
                         <CategorySelect value={form.category_id}
                           onChange={v => setForm(f => ({ ...f, category_id: v }))} categories={categories} />
+                        <ModelSelector value={selectedModel} onChange={setSelectedModel} />
                       </div>
                       {!isDeveloper && <DeveloperWarning />}
                       <PrimaryButton onClick={handleStartGuided}
@@ -595,6 +626,8 @@ export default function AICreatePage() {
                   onSubmit={handleImproveSubmit}
                   onRefresh={fetchImproveApps}
                   isDeveloper={isDeveloper}
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
                   publishProps={{
                     open: showPublish,
                     onToggle: () => setShowPublish(v => !v),
@@ -670,7 +703,7 @@ export default function AICreatePage() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Improve tab ───────────────────────────────────────────────────────── */
-function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeedbackChange, onSubmit, onRefresh, isDeveloper, publishProps }) {
+function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeedbackChange, onSubmit, onRefresh, isDeveloper, selectedModel, onModelChange, publishProps }) {
   return (
     <div className="space-y-5 animate-fade-up">
       {/* App selector */}
@@ -767,6 +800,7 @@ function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeed
                 rows={4}
                 className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all text-sm resize-none leading-relaxed"
               />
+              <ModelSelector value={selectedModel} onChange={onModelChange} />
             </div>
 
             {!isDeveloper && <DeveloperWarning />}
@@ -1027,6 +1061,62 @@ function DeveloperWarning() {
         Necesitas una cuenta <strong className="font-semibold text-amber-300">developer</strong> para crear apps.{' '}
         <Link to="/login" className="underline underline-offset-2 hover:text-amber-200 transition-colors">Inicia sesión</Link>.
       </p>
+    </div>
+  )
+}
+
+/* ── Model selector ────────────────────────────────────────────────────── */
+function ModelSelector({ value, onChange }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-[var(--text-primary)] mb-2.5">Modelo IA</p>
+      <div className="grid grid-cols-3 gap-2">
+        {MODELS.map(m => {
+          const active = value === m.id
+          return (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onChange(m.id)}
+              className={`relative flex flex-col items-center gap-1.5 pt-5 pb-3 px-2 rounded-xl border text-center transition-all touch-manipulation
+                ${active
+                  ? 'bg-violet-500/12 border-violet-500/40 ring-1 ring-violet-500/25'
+                  : 'bg-[var(--bg-base)] border-[var(--border)] hover:border-[var(--border-hover)]'
+                }`}
+            >
+              {m.badge && (
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full bg-violet-500 text-[9px] font-bold text-white whitespace-nowrap leading-tight">
+                  {m.badge}
+                </span>
+              )}
+              <span className={`text-sm font-bold leading-tight ${active ? 'text-violet-200' : 'text-[var(--text-primary)]'}`}>
+                {m.name}
+              </span>
+              <span className={`text-[10px] leading-tight ${active ? 'text-violet-300/80' : 'text-[var(--text-muted)]'}`}>
+                {m.tagline}
+              </span>
+              <div className="flex flex-col gap-1 mt-1">
+                <div className="flex items-center gap-1 justify-center">
+                  <span className="text-[10px]">🧠</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3].map(i => (
+                      <span key={i} className={`w-1.5 h-1.5 rounded-full ${i <= m.intelligence ? (active ? 'bg-violet-400' : 'bg-violet-500/60') : 'bg-white/12'}`} />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 justify-center">
+                  <span className="text-[10px]">💰</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3].map(i => (
+                      <span key={i} className={`w-1.5 h-1.5 rounded-full ${i <= m.cost ? (active ? 'bg-amber-400' : 'bg-amber-500/60') : 'bg-white/12'}`} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

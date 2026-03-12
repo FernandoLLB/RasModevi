@@ -953,6 +953,12 @@ def _slugify(name: str) -> str:
     return slug.strip("-")
 
 
+ALLOWED_MODELS = {
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5-20251001",
+}
+
 async def _stream(
     description: str,
     name: str,
@@ -960,6 +966,7 @@ async def _stream(
     user: User,
     db: Session,
     device_db: Session,
+    model: str = "claude-sonnet-4-6",
 ) -> AsyncGenerator[str, None]:
     """Yield SSE-formatted data events for the entire app-creation pipeline."""
 
@@ -980,7 +987,7 @@ async def _stream(
 
     try:
         async with client.messages.stream(
-            model="claude-opus-4-6",
+            model=model,
             max_tokens=32768,
             system=SYSTEM_PROMPT,
             messages=[
@@ -1165,6 +1172,7 @@ async def create_app_with_ai(
     description: str = Query(..., min_length=10, description="Descripción de la app"),
     name: str = Query(..., min_length=2, description="Nombre de la app"),
     category_id: int = Query(default=None, description="ID de categoría (opcional)"),
+    model: str = Query(default="claude-sonnet-4-6", description="Modelo Claude a usar"),
     token: str = Query(..., description="JWT access token"),
     db: Session = Depends(get_platform_db),
     device_db: Session = Depends(get_device_db),
@@ -1189,8 +1197,11 @@ async def create_app_with_ai(
     if user.role not in ("developer", "admin"):
         raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
 
+    if model not in ALLOWED_MODELS:
+        raise HTTPException(status_code=400, detail=f"Modelo no permitido. Usa uno de: {', '.join(ALLOWED_MODELS)}")
+
     return StreamingResponse(
-        _stream(description, name, category_id, user, db, device_db),
+        _stream(description, name, category_id, user, db, device_db, model=model),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -1285,6 +1296,7 @@ async def _stream_debug(
     user: User,
     device_db: Session,
     db: Session,
+    model: str = "claude-sonnet-4-6",
 ) -> AsyncGenerator[str, None]:
     """Stream an improved version of an existing installed app."""
 
@@ -1323,7 +1335,7 @@ async def _stream_debug(
 
     try:
         async with client.messages.stream(
-            model="claude-opus-4-6",
+            model=model,
             max_tokens=32768,
             system=SYSTEM_PROMPT,
             messages=[{
@@ -1490,6 +1502,7 @@ async def publish_improved_app(
 async def debug_app_with_ai(
     installed_id: int = Query(..., description="ID de la app instalada a mejorar"),
     feedback: str = Query(..., min_length=5, description="Feedback del usuario"),
+    model: str = Query(default="claude-sonnet-4-6", description="Modelo Claude a usar"),
     token: str = Query(..., description="JWT access token"),
     db: Session = Depends(get_platform_db),
     device_db: Session = Depends(get_device_db),
@@ -1513,8 +1526,11 @@ async def debug_app_with_ai(
     if user.role not in ("developer", "admin"):
         raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
 
+    if model not in ALLOWED_MODELS:
+        raise HTTPException(status_code=400, detail=f"Modelo no permitido. Usa uno de: {', '.join(ALLOWED_MODELS)}")
+
     return StreamingResponse(
-        _stream_debug(installed_id, feedback, user, device_db, db),
+        _stream_debug(installed_id, feedback, user, device_db, db, model=model),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
