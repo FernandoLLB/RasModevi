@@ -532,7 +532,7 @@ export default function AICreatePage() {
         </div>
 
         <div className="relative px-4 sm:px-6 xl:px-8 pt-6 pb-10">
-          <div className={showResult ? 'max-w-6xl mx-auto' : 'max-w-2xl mx-auto'}>
+          <div className={showResult ? 'max-w-6xl mx-auto' : 'max-w-2xl lg:max-w-5xl mx-auto'}>
 
           {/* ── HEADER ────────────────────────────────────────────────── */}
           <header className="mb-5 animate-fade-in">
@@ -580,14 +580,11 @@ export default function AICreatePage() {
             </div>
           )}
 
-          {/* ── TWO-COLUMN only when result is active ── */}
-          <div className={showResult
-            ? 'lg:grid lg:grid-cols-[420px_1fr] lg:gap-8 xl:grid-cols-[460px_1fr] xl:gap-10'
-            : ''
-          }>
+          {/* ── TWO-COLUMN on desktop always ── */}
+          <div className="lg:grid lg:grid-cols-[420px_1fr] lg:gap-8 xl:grid-cols-[460px_1fr] xl:gap-10">
 
             {/* ══ LEFT COLUMN: Form / Questions ══ */}
-            <div className={showResult ? 'hidden lg:block' : ''}>
+            <div>
 
               {/* ── CREAR TAB ── */}
               {phase === 'idle' && mainTab === 'crear' && (
@@ -748,7 +745,7 @@ export default function AICreatePage() {
             </div>
 
             {/* ══ RIGHT COLUMN: Result (always on desktop, mobile only when active) ══ */}
-            <div className={showForm ? 'hidden lg:flex lg:flex-col lg:justify-center' : ''}>
+            <div className="hidden lg:flex lg:flex-col lg:justify-center">
               {showForm && (
                 /* Desktop idle placeholder */
                 <div className="hidden lg:flex flex-col items-center justify-center h-full min-h-[400px] rounded-2xl border border-dashed border-white/[0.06] p-8 text-center">
