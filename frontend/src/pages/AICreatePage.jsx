@@ -280,7 +280,8 @@ export default function AICreatePage() {
                style={{ background: 'radial-gradient(ellipse, #6366f1 0%, transparent 70%)' }} />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 xl:px-8 pt-6 pb-10">
+        <div className="relative px-4 sm:px-6 xl:px-8 pt-6 pb-10">
+          <div className={showResult ? 'max-w-6xl mx-auto' : 'max-w-2xl mx-auto'}>
 
           {/* ── HEADER ────────────────────────────────────────────────── */}
           <header className="mb-6 animate-fade-in">
@@ -303,7 +304,7 @@ export default function AICreatePage() {
           {/* ── TWO-COLUMN only when result is active; centered single col otherwise ── */}
           <div className={showResult
             ? 'lg:grid lg:grid-cols-[420px_1fr] lg:gap-8 xl:grid-cols-[460px_1fr] xl:gap-10'
-            : 'max-w-2xl mx-auto'
+            : ''
           }>
 
             {/* ══ LEFT COLUMN: Form / Questions ══ */}
@@ -446,6 +447,7 @@ export default function AICreatePage() {
               {showResult && resultPanel}
             </div>
 
+          </div>
           </div>
         </div>
       </div>
