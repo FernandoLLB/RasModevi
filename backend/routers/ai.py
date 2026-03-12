@@ -12,11 +12,12 @@ from typing import AsyncGenerator
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import r2
-from auth import verify_token
+from auth import verify_token, get_current_user
 from database import get_platform_db, get_device_db
 from models_platform import StoreApp, User
 from models_device import InstalledApp, ActivityLog
@@ -1190,6 +1191,254 @@ async def create_app_with_ai(
 
     return StreamingResponse(
         _stream(description, name, category_id, user, db, device_db),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Suggest guided questions
+# ---------------------------------------------------------------------------
+
+
+class SuggestQuestionsIn(BaseModel):
+    name: str
+    description: str = ""
+
+
+@router.post("/suggest-questions")
+async def suggest_questions(
+    body: SuggestQuestionsIn,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Ask Haiku to generate 3-4 clarifying questions to help the user
+    describe their app idea more precisely before generation.
+    """
+    if current_user.role not in ("developer", "admin"):
+        raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY no configurada")
+
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+
+    context = f"Nombre de la app: «{body.name}»"
+    if body.description.strip():
+        context += f"\nIdea inicial: {body.description[:300]}"
+
+    try:
+        response = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=400,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"{context}\n\n"
+                    "Genera exactamente 3 preguntas cortas y concretas (máximo 12 palabras cada una) "
+                    "que ayudarían a un desarrollador a describir mejor esta app para que la IA la genere correctamente. "
+                    "Las preguntas deben ser útiles y específicas al tipo de app descrita. "
+                    "Responde ÚNICAMENTE con un JSON válido con este formato exacto, sin texto adicional:\n"
+                    '[{"id":"q1","text":"Pregunta aquí"},{"id":"q2","text":"Pregunta aquí"},{"id":"q3","text":"Pregunta aquí"}]'
+                ),
+            }],
+        )
+        raw = response.content[0].text.strip()
+        # Strip markdown fences if present
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+        questions = json.loads(raw)
+        if not isinstance(questions, list):
+            raise ValueError("not a list")
+    except Exception:
+        # Fallback generic questions
+        questions = [
+            {"id": "q1", "text": "¿Debe guardar datos entre sesiones?"},
+            {"id": "q2", "text": "¿Qué botones o controles principales necesita?"},
+            {"id": "q3", "text": "¿Usa alguna API externa o datos en tiempo real?"},
+        ]
+
+    return {"questions": questions}
+
+
+# ---------------------------------------------------------------------------
+# Debug / improve an existing AI-generated app
+# ---------------------------------------------------------------------------
+
+
+async def _stream_debug(
+    installed_id: int,
+    feedback: str,
+    user: User,
+    device_db: Session,
+    db: Session,
+) -> AsyncGenerator[str, None]:
+    """Stream an improved version of an existing installed app."""
+
+    def evt(data: dict) -> str:
+        return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+    # Load installed app
+    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
+    if not installed:
+        yield evt({"type": "error", "message": f"App instalada #{installed_id} no encontrada."})
+        return
+
+    install_path = Path(installed.install_path) if installed.install_path else INSTALLED_DIR / str(installed_id)
+    index_html = install_path / "index.html"
+    if not index_html.exists():
+        yield evt({"type": "error", "message": "No se encontró el archivo index.html de la app. ¿Estás conectado a la Pi?"})
+        return
+
+    original_html = index_html.read_text(encoding="utf-8")
+
+    # Get app name from StoreApp
+    store_app = db.query(StoreApp).filter(StoreApp.id == installed.store_app_id).first()
+    app_name = store_app.name if store_app else f"App #{installed_id}"
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        yield evt({"type": "error", "message": "ANTHROPIC_API_KEY no está configurada en el servidor."})
+        return
+
+    yield evt({"type": "status", "step": "connecting", "message": "Conectando con Claude..."})
+
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    new_html = ""
+
+    yield evt({"type": "status", "step": "generating", "message": "Generando versión mejorada..."})
+
+    try:
+        async with client.messages.stream(
+            model="claude-opus-4-6",
+            max_tokens=32768,
+            system=SYSTEM_PROMPT,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Aquí está el código HTML completo de una app ModevI llamada «{app_name}»:\n\n"
+                    f"{original_html}\n\n"
+                    f"---\n\n"
+                    f"El usuario quiere mejorarla con el siguiente feedback:\n{feedback}\n\n"
+                    f"Genera una versión mejorada y completa del HTML. "
+                    f"Mantén todo lo que funciona bien. Aplica los cambios pedidos con precisión."
+                ),
+            }],
+        ) as stream:
+            async for text in stream.text_stream:
+                new_html += text
+                yield evt({"type": "code_chunk", "text": text})
+
+    except anthropic.APIError as e:
+        yield evt({"type": "error", "message": f"Error de la API de IA: {e}"})
+        return
+    except Exception as e:
+        yield evt({"type": "error", "message": f"Error inesperado: {e}"})
+        return
+
+    # Strip markdown fences
+    if "```html" in new_html:
+        new_html = new_html.split("```html", 1)[1].split("```", 1)[0].strip()
+    elif "```" in new_html:
+        new_html = new_html.split("```", 1)[1].split("```", 1)[0].strip()
+
+    if not new_html.strip().upper().startswith("<!"):
+        yield evt({"type": "error", "message": "La IA no devolvió un HTML válido."})
+        return
+
+    if not new_html.strip().upper().endswith("</HTML>"):
+        yield evt({"type": "error", "message": "El código generado quedó incompleto. Inténtalo de nuevo."})
+        return
+
+    yield evt({"type": "status", "step": "packaging", "message": "Actualizando archivos..."})
+
+    # Fix SDK src placeholder
+    sdk_tag = f'<script src="/api/sdk/app/{installed_id}/sdk.js"></script>'
+    if '/api/sdk/app/0/sdk.js' in new_html:
+        new_html = new_html.replace('<script src="/api/sdk/app/0/sdk.js"></script>', sdk_tag, 1)
+    elif sdk_tag not in new_html:
+        inject_before = "</head>" if "</head>" in new_html else "</body>"
+        new_html = new_html.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
+
+    # Write updated HTML to disk
+    index_html.write_text(new_html, encoding="utf-8")
+
+    # Re-upload ZIP to R2 if store app exists
+    if store_app and store_app.package_url:
+        manifest = {
+            "name": app_name,
+            "version": store_app.version or "1.0.0",
+            "description": store_app.description or "",
+            "entry_point": "index.html",
+            "required_hardware": store_app.required_hardware or [],
+            "permissions": store_app.permissions or [],
+        }
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("index.html", new_html)
+            zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+        try:
+            r2.upload(
+                key=f"packages/{store_app.id}/app.zip",
+                data=zip_buf.getvalue(),
+                content_type="application/zip",
+            )
+        except Exception:
+            pass  # R2 update is best-effort
+
+    device_db.add(ActivityLog(
+        installed_app_id=installed_id,
+        action="update",
+        details=f"App mejorada con IA. Feedback: {feedback[:200]}",
+    ))
+    device_db.commit()
+
+    yield evt({
+        "type": "done",
+        "app_id": store_app.id if store_app else None,
+        "app_slug": store_app.slug if store_app else None,
+        "installed_id": installed_id,
+        "message": f"¡App «{app_name}» actualizada con éxito!",
+    })
+
+
+@router.get("/debug-app")
+async def debug_app_with_ai(
+    installed_id: int = Query(..., description="ID de la app instalada a mejorar"),
+    feedback: str = Query(..., min_length=5, description="Feedback del usuario"),
+    token: str = Query(..., description="JWT access token"),
+    db: Session = Depends(get_platform_db),
+    device_db: Session = Depends(get_device_db),
+):
+    """
+    Stream an improved version of an installed app based on user feedback.
+    Uses JWT via query param (EventSource limitation).
+    """
+    try:
+        payload = verify_token(token)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Token de tipo incorrecto")
+
+    user_id = int(payload.get("sub", 0))
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuario no encontrado")
+    if user.role not in ("developer", "admin"):
+        raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
+
+    return StreamingResponse(
+        _stream_debug(installed_id, feedback, user, device_db, db),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
