@@ -1415,6 +1415,98 @@ async def _stream_debug(
     })
 
 
+class PublishImprovedIn(BaseModel):
+    installed_id: int
+    name: str
+    description: str
+    category_id: int | None = None
+
+
+@router.post("/publish-improved")
+async def publish_improved_app(
+    body: PublishImprovedIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_platform_db),
+    device_db: Session = Depends(get_device_db),
+):
+    """
+    Publish an improved installed app as a new Store entry.
+    Reads the current index.html, packages it, uploads to R2, and registers in MySQL.
+    """
+    if user.role not in ("developer", "admin"):
+        raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
+
+    installed = device_db.query(InstalledApp).filter(InstalledApp.id == body.installed_id).first()
+    if not installed:
+        raise HTTPException(status_code=404, detail=f"App instalada #{body.installed_id} no encontrada.")
+
+    install_path = Path(installed.install_path) if installed.install_path else INSTALLED_DIR / str(installed.id)
+    index_html = install_path / "index.html"
+    if not index_html.exists():
+        raise HTTPException(status_code=404, detail="No se encontró el archivo index.html de la app.")
+
+    html_code = index_html.read_text(encoding="utf-8")
+
+    manifest = {
+        "name": body.name,
+        "version": "1.0.0",
+        "description": body.description,
+        "entry_point": "index.html",
+        "required_hardware": [],
+        "permissions": [],
+    }
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("index.html", html_code)
+        zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+    zip_bytes = zip_buf.getvalue()
+
+    base_slug = _slugify(body.name) or "ai-app"
+    slug = base_slug
+    counter = 1
+    while db.query(StoreApp).filter(StoreApp.slug == slug).first():
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+
+    store_app = StoreApp(
+        developer_id=user.id,
+        category_id=body.category_id,
+        name=body.name,
+        slug=slug,
+        description=body.description,
+        long_description=body.description,
+        version="1.0.0",
+        permissions=[],
+        required_hardware=[],
+        status="published",
+    )
+    db.add(store_app)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        slug = f"{slug}-{os.urandom(3).hex()}"
+        store_app.slug = slug
+        db.add(store_app)
+        db.commit()
+    db.refresh(store_app)
+
+    package_url = r2.upload(
+        key=f"packages/{store_app.id}/app.zip",
+        data=zip_bytes,
+        content_type="application/zip",
+    )
+    store_app.package_url = package_url
+    db.commit()
+
+    return {
+        "app_id": store_app.id,
+        "slug": store_app.slug,
+        "message": f"App «{body.name}» publicada en la tienda.",
+    }
+
+
 @router.get("/debug-app")
 async def debug_app_with_ai(
     installed_id: int = Query(..., description="ID de la app instalada a mejorar"),

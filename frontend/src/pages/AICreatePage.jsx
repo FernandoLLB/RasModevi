@@ -5,9 +5,11 @@ import {
   Code2, Package, Store, Zap, RotateCcw,
   MessageSquare, Wand2, ChevronDown, ChevronUp,
   WrenchIcon, ArrowRight, ArrowLeft, PenLine,
+  Upload, Globe, ImageOff,
 } from 'lucide-react'
 import DeviceLayout from '../components/layout/DeviceLayout'
 import { storeApi } from '../api/store'
+import { deviceApi } from '../api/device'
 import { STORE_BASE, DEVICE_BASE, refreshTokens } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
@@ -75,6 +77,20 @@ export default function AICreatePage() {
   const [customText, setCustomText]           = useState('')
 
   const [debugFeedback, setDebugFeedback] = useState('')
+
+  // ── Improve tab state ────────────────────────────────────────────────────
+  const [mainTab, setMainTab]                   = useState('crear')
+  const [improveApps, setImproveApps]           = useState([])
+  const [improveAppsLoading, setImproveAppsLoading] = useState(false)
+  const [improveAppsError, setImproveAppsError] = useState('')
+  const [selectedImproveApp, setSelectedImproveApp] = useState(null)
+  const [improveFeedback, setImproveFeedback]   = useState('')
+
+  // ── Publish panel state ──────────────────────────────────────────────────
+  const [showPublish, setShowPublish]       = useState(false)
+  const [publishForm, setPublishForm]       = useState({ name: '', description: '', category_id: '' })
+  const [publishLoading, setPublishLoading] = useState(false)
+  const [publishResult, setPublishResult]   = useState(null)
 
   const codeRef = useRef(null)
   const esRef   = useRef(null)
@@ -177,7 +193,7 @@ export default function AICreatePage() {
     return showCustom ? customText.trim() : (guidedAnswers[q?.id] || '')
   }
 
-  /* ── debug ───────────────────────────────────────────────────────────── */
+  /* ── debug (from post-create panel) ──────────────────────────────────── */
   const handleDebugSubmit = async (e) => {
     e.preventDefault()
     if (!debugFeedback.trim() || !resultApp?.installed_id) return
@@ -191,12 +207,89 @@ export default function AICreatePage() {
     })
   }
 
+  /* ── improve tab ──────────────────────────────────────────────────────── */
+  const fetchImproveApps = async () => {
+    setImproveAppsLoading(true)
+    setImproveAppsError('')
+    try {
+      const data = await deviceApi.getInstalled()
+      setImproveApps(Array.isArray(data) ? data : [])
+    } catch {
+      setImproveAppsError('No se pudieron cargar las apps instaladas. ¿Está la Pi conectada?')
+    } finally {
+      setImproveAppsLoading(false)
+    }
+  }
+
+  const handleTabChange = (tab) => {
+    setMainTab(tab)
+    if (tab === 'mejorar' && improveApps.length === 0 && !improveAppsLoading) {
+      fetchImproveApps()
+    }
+  }
+
+  const handleImproveSubmit = async (e) => {
+    e.preventDefault()
+    if (!improveFeedback.trim() || !selectedImproveApp) return
+    const token = await getToken()
+    if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
+    setPhase('debug_streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg('')
+    setIsDebugMode(true); setShowPublish(false); setPublishResult(null)
+    const installedId = selectedImproveApp.id
+    const appName = selectedImproveApp.store_app?.name ?? `App #${installedId}`
+    const qs = new URLSearchParams({ installed_id: installedId, feedback: improveFeedback, token })
+    startSSE(`${DEVICE_BASE}/api/ai/debug-app?${qs}`, (d) => {
+      setResultApp({
+        id: d.app_id ?? selectedImproveApp.store_app?.id,
+        slug: d.app_slug ?? selectedImproveApp.store_app?.slug,
+        installed_id: installedId,
+        name: appName,
+        message: d.message,
+      })
+      setImproveFeedback('')
+      setPublishForm({ name: appName, description: selectedImproveApp.store_app?.description ?? '', category_id: String(selectedImproveApp.store_app?.category_id ?? '') })
+    })
+  }
+
+  /* ── publish ──────────────────────────────────────────────────────────── */
+  const handlePublish = async (e) => {
+    e.preventDefault()
+    if (!publishForm.name.trim() || !resultApp?.installed_id) return
+    setPublishLoading(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${STORE_BASE}/api/ai/publish-improved`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          installed_id: resultApp.installed_id,
+          name: publishForm.name,
+          description: publishForm.description,
+          category_id: publishForm.category_id ? parseInt(publishForm.category_id) : null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Error al publicar')
+      }
+      const data = await res.json()
+      setPublishResult(data)
+    } catch (err) {
+      setPublishResult({ error: err.message })
+    } finally {
+      setPublishLoading(false)
+    }
+  }
+
   /* ── reset ───────────────────────────────────────────────────────────── */
   const reset = () => {
     esRef.current?.close()
     setPhase('idle'); setCurrentStep(null); setCodeText(''); setErrorMsg(''); setResultApp(null); setIsDebugMode(false)
     setGuidedQuestions([]); setGuidedStep(0); setGuidedAnswers({}); setShowCustom(false); setCustomText('')
     setDebugFeedback(''); setForm({ name: '', description: '', category_id: '' })
+    setSelectedImproveApp(null); setImproveFeedback('')
+    setShowPublish(false); setPublishResult(null); setPublishLoading(false)
+    setPublishForm({ name: '', description: '', category_id: '' })
   }
 
   /* ── derived ─────────────────────────────────────────────────────────── */
@@ -204,11 +297,10 @@ export default function AICreatePage() {
   const stepIdx = activeSteps.findIndex(s => s.id === currentStep)
   const isStreaming = phase === 'streaming' || phase === 'debug_streaming'
 
-  /* ═════════════════════════════════════════════════════════════════════ */
-
   const showResult = isStreaming || phase === 'done' || phase === 'error'
   const showForm   = phase === 'idle' || phase === 'guided_questions'
 
+  /* ── result panel (shared between create and improve) ─────────────────── */
   const resultPanel = showResult && (
     <div className="space-y-4 animate-fade-up">
       {(isStreaming || phase === 'done') && (
@@ -255,16 +347,33 @@ export default function AICreatePage() {
           </div>
         </div>
       )}
-      {phase === 'done' && resultApp?.installed_id && (
+
+      {/* ── Improve panel (only for create-mode result) ──────────────────── */}
+      {phase === 'done' && resultApp?.installed_id && mainTab === 'crear' && (
         <DebugPanel feedback={debugFeedback} onFeedbackChange={setDebugFeedback} onSubmit={handleDebugSubmit} />
       )}
+
+      {/* ── Publish panel (only after improve-tab result) ────────────────── */}
+      {phase === 'done' && resultApp?.installed_id && mainTab === 'mejorar' && (
+        <PublishPanel
+          open={showPublish}
+          onToggle={() => setShowPublish(v => !v)}
+          form={publishForm}
+          onFormChange={setPublishForm}
+          categories={categories}
+          onSubmit={handlePublish}
+          loading={publishLoading}
+          result={publishResult}
+        />
+      )}
+
       {(phase === 'done' || phase === 'error') && (
         <button
           onClick={reset}
           className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
         >
           <RotateCcw size={15} />
-          Crear otra app
+          {mainTab === 'mejorar' ? 'Mejorar otra app' : 'Crear otra app'}
         </button>
       )}
     </div>
@@ -284,7 +393,7 @@ export default function AICreatePage() {
           <div className={showResult ? 'max-w-6xl mx-auto' : 'max-w-2xl mx-auto'}>
 
           {/* ── HEADER ────────────────────────────────────────────────── */}
-          <header className="mb-6 animate-fade-in">
+          <header className="mb-5 animate-fade-in">
             <div className="flex items-center gap-3.5">
               <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0">
                 <Sparkles size={20} className="text-white" />
@@ -292,16 +401,44 @@ export default function AICreatePage() {
               </div>
               <div>
                 <h1 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] leading-tight tracking-tight">
-                  Crear con IA
+                  IA para apps
                 </h1>
                 <p className="text-[13px] text-[var(--text-secondary)] mt-0.5 leading-snug">
-                  Describe tu idea — Claude genera la app
+                  {mainTab === 'crear' ? 'Describe tu idea — Claude genera la app' : 'Selecciona una app y dile qué cambiar'}
                 </p>
               </div>
             </div>
           </header>
 
-          {/* ── TWO-COLUMN only when result is active; centered single col otherwise ── */}
+          {/* ── MAIN TABS ─────────────────────────────────────────────── */}
+          {showForm && (
+            <div className="relative flex p-1.5 gap-1.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] mb-5">
+              <div
+                className="absolute top-1.5 bottom-1.5 rounded-xl bg-gradient-to-r from-violet-600/30 to-indigo-600/30 border border-violet-500/20 transition-all duration-300 ease-out"
+                style={{ width: 'calc(50% - 8px)', left: mainTab === 'crear' ? '6px' : 'calc(50% + 2px)' }}
+              />
+              {[
+                { key: 'crear',  label: 'Crear app',    icon: Sparkles,    sub: 'Nueva desde cero' },
+                { key: 'mejorar', label: 'Mejorar app', icon: WrenchIcon,  sub: 'Modifica existente' },
+              ].map(({ key, label, icon: Icon, sub }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleTabChange(key)}
+                  className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3.5 rounded-xl text-center transition-colors touch-manipulation min-h-[64px]
+                    ${mainTab === key ? 'text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon size={15} />
+                    <span className="text-sm font-semibold">{label}</span>
+                  </span>
+                  <span className="text-[11px] opacity-60">{sub}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── TWO-COLUMN only when result is active ── */}
           <div className={showResult
             ? 'lg:grid lg:grid-cols-[420px_1fr] lg:gap-8 xl:grid-cols-[460px_1fr] xl:gap-10'
             : ''
@@ -310,10 +447,9 @@ export default function AICreatePage() {
             {/* ══ LEFT COLUMN: Form / Questions ══ */}
             <div className={showResult ? 'hidden lg:block' : ''}>
 
-              {/* ── IDLE ── */}
-              {phase === 'idle' && (
+              {/* ── CREAR TAB ── */}
+              {phase === 'idle' && mainTab === 'crear' && (
                 <div className="space-y-5 animate-fade-up">
-
                   {/* Mode segmented control */}
                   <div className="relative flex p-1.5 gap-1.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)]">
                     <div
@@ -412,19 +548,44 @@ export default function AICreatePage() {
                 />
               )}
 
+              {/* ── MEJORAR TAB ── */}
+              {phase === 'idle' && mainTab === 'mejorar' && (
+                <ImproveTab
+                  apps={improveApps}
+                  loading={improveAppsLoading}
+                  error={improveAppsError}
+                  selected={selectedImproveApp}
+                  onSelect={setSelectedImproveApp}
+                  feedback={improveFeedback}
+                  onFeedbackChange={setImproveFeedback}
+                  onSubmit={handleImproveSubmit}
+                  onRefresh={fetchImproveApps}
+                  isDeveloper={isDeveloper}
+                />
+              )}
+
               {/* On desktop: show summary of submitted form while result is loading/done */}
               {showResult && (
                 <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-5 space-y-3 animate-fade-in">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">Solicitud enviada</p>
-                  <p className="text-base font-bold text-[var(--text-primary)]">{form.name || '—'}</p>
-                  {form.description && (
+                  <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+                    {mainTab === 'mejorar' ? 'App mejorada' : 'Solicitud enviada'}
+                  </p>
+                  <p className="text-base font-bold text-[var(--text-primary)]">
+                    {mainTab === 'mejorar'
+                      ? (selectedImproveApp?.store_app?.name ?? resultApp?.name ?? '—')
+                      : (form.name || '—')}
+                  </p>
+                  {mainTab === 'mejorar' && improveFeedback && (
+                    <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed line-clamp-4 italic">"{improveFeedback}"</p>
+                  )}
+                  {mainTab === 'crear' && form.description && (
                     <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed line-clamp-6">{form.description}</p>
                   )}
                   <button
                     onClick={reset}
                     className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors pt-1 touch-manipulation"
                   >
-                    <RotateCcw size={13} /> Nueva app
+                    <RotateCcw size={13} /> {mainTab === 'mejorar' ? 'Mejorar otra' : 'Nueva app'}
                   </button>
                 </div>
               )}
@@ -436,11 +597,16 @@ export default function AICreatePage() {
                 /* Desktop idle placeholder */
                 <div className="hidden lg:flex flex-col items-center justify-center h-full min-h-[400px] rounded-2xl border border-dashed border-white/[0.06] p-8 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mb-4">
-                    <Sparkles size={28} className="text-violet-400/60" />
+                    {mainTab === 'crear'
+                      ? <Sparkles size={28} className="text-violet-400/60" />
+                      : <WrenchIcon size={28} className="text-indigo-400/60" />
+                    }
                   </div>
-                  <p className="text-sm font-medium text-[var(--text-muted)]">El código generado aparecerá aquí</p>
+                  <p className="text-sm font-medium text-[var(--text-muted)]">
+                    {mainTab === 'crear' ? 'El código generado aparecerá aquí' : 'El código mejorado aparecerá aquí'}
+                  </p>
                   <p className="text-[12px] text-[var(--text-muted)]/60 mt-1.5 leading-relaxed max-w-[220px]">
-                    Rellena el formulario y pulsa Generar
+                    {mainTab === 'crear' ? 'Rellena el formulario y pulsa Generar' : 'Selecciona una app y describe los cambios'}
                   </p>
                 </div>
               )}
@@ -458,6 +624,218 @@ export default function AICreatePage() {
 /* ═══════════════════════════════════════════════════════════════════════════
    SUB-COMPONENTS
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Improve tab ───────────────────────────────────────────────────────── */
+function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeedbackChange, onSubmit, onRefresh, isDeveloper }) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-5 animate-fade-up">
+      {/* App selector */}
+      <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5">
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-sm font-semibold text-[var(--text-primary)]">App a mejorar</label>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="flex items-center gap-1.5 text-[12px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors touch-manipulation disabled:opacity-40"
+          >
+            <RotateCcw size={12} className={loading ? 'animate-spin' : ''} />
+            Recargar
+          </button>
+        </div>
+
+        {loading && (
+          <div className="flex items-center justify-center py-8 gap-3 text-[var(--text-muted)]">
+            <Loader2 size={18} className="animate-spin" />
+            <span className="text-sm">Cargando apps instaladas…</span>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-red-500/8 border border-red-500/15">
+            <AlertCircle size={15} className="text-red-400 mt-0.5 shrink-0" />
+            <p className="text-[13px] text-red-300/90 leading-relaxed">{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && apps.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-sm text-[var(--text-muted)]">No hay apps instaladas en el dispositivo.</p>
+          </div>
+        )}
+
+        {!loading && apps.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-0.5">
+            {apps.map(app => {
+              const isSelected = selected?.id === app.id
+              const name = app.store_app?.name ?? `App #${app.id}`
+              const iconPath = app.store_app?.icon_path
+              return (
+                <button
+                  key={app.id}
+                  type="button"
+                  onClick={() => onSelect(isSelected ? null : app)}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all touch-manipulation min-h-[80px] text-center
+                    ${isSelected
+                      ? 'bg-violet-500/12 border-violet-500/40 ring-1 ring-violet-500/25'
+                      : 'bg-[var(--bg-base)] border-[var(--border)] hover:border-[var(--border-hover)]'
+                    }`}
+                >
+                  {/* Icon */}
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden
+                    ${isSelected ? 'bg-violet-500/20' : 'bg-white/[0.04]'}`}>
+                    {iconPath
+                      ? <img src={iconPath} alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display='none' }} />
+                      : <Sparkles size={16} className={isSelected ? 'text-violet-400' : 'text-[var(--text-muted)]'} />
+                    }
+                  </div>
+                  <p className={`text-[12px] font-medium leading-tight line-clamp-2 ${isSelected ? 'text-violet-200' : 'text-[var(--text-secondary)]'}`}>
+                    {name}
+                  </p>
+                  {isSelected && (
+                    <div className="w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center">
+                      <Check size={10} className="text-white" strokeWidth={3} />
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Feedback textarea */}
+      <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5 space-y-3">
+        <label className="block text-sm font-semibold text-[var(--text-primary)]">
+          ¿Qué quieres cambiar o corregir?
+        </label>
+        <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed -mt-1">
+          Describe los bugs, mejoras o cambios visuales. Claude regenerará la app completa aplicando tus indicaciones.
+        </p>
+        <textarea
+          value={feedback}
+          onChange={e => onFeedbackChange(e.target.value)}
+          placeholder={'Ej: "El botón de guardar no funciona. Quiero que los colores sean más vibrantes y que se muestre un contador total arriba."'}
+          rows={4}
+          className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all text-sm resize-none leading-relaxed"
+        />
+      </div>
+
+      {!isDeveloper && <DeveloperWarning />}
+
+      <PrimaryButton
+        type="submit"
+        disabled={!isDeveloper || !selected || !feedback.trim()}
+        icon={WrenchIcon}
+        label={selected ? `Mejorar «${selected.store_app?.name ?? `App #${selected.id}`}»` : 'Selecciona una app primero'}
+      />
+    </form>
+  )
+}
+
+/* ── Publish panel ─────────────────────────────────────────────────────── */
+function PublishPanel({ open, onToggle, form, onFormChange, categories, onSubmit, loading, result }) {
+  if (result?.slug) {
+    return (
+      <div className="rounded-2xl bg-violet-500/6 border border-violet-500/15 p-4 sm:p-5">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center shrink-0">
+            <Globe size={18} className="text-violet-400" />
+          </div>
+          <div className="pt-0.5">
+            <p className="text-sm font-semibold text-violet-200">¡Publicada en la tienda!</p>
+            <p className="text-[13px] text-[var(--text-secondary)] mt-1">{result.message}</p>
+          </div>
+        </div>
+        <Link
+          to={`/app/${result.slug}`}
+          className="mt-4 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-violet-500/15 border border-violet-500/25 text-violet-300 text-sm font-semibold hover:bg-violet-500/25 active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
+        >
+          Ver en la tienda <ChevronRight size={15} />
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl bg-[var(--bg-surface)] border border-violet-500/12 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[0.015] active:bg-white/[0.03] transition-colors min-h-[56px] touch-manipulation"
+      >
+        <span className="flex items-center gap-2.5">
+          <Upload size={16} className="text-violet-400" />
+          <span className="text-sm font-semibold text-violet-300">Publicar en la tienda</span>
+          <span className="text-[11px] text-violet-400/50 font-normal">como nueva app</span>
+        </span>
+        {open ? <ChevronUp size={15} className="text-[var(--text-muted)]" /> : <ChevronDown size={15} className="text-[var(--text-muted)]" />}
+      </button>
+
+      {open && (
+        <form onSubmit={onSubmit} className="px-5 pb-5 space-y-4 border-t border-[var(--border)]">
+          <p className="text-[13px] text-[var(--text-secondary)] pt-4 leading-relaxed">
+            Publica la versión mejorada como una nueva entrada en la tienda con el nombre que elijas.
+          </p>
+
+          {result?.error && (
+            <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-500/8 border border-red-500/15">
+              <AlertCircle size={14} className="text-red-400 mt-0.5 shrink-0" />
+              <p className="text-[13px] text-red-300/90">{result.error}</p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Nombre</label>
+            <input
+              value={form.name}
+              onChange={e => onFormChange(f => ({ ...f, name: e.target.value }))}
+              placeholder="Nombre de la nueva app"
+              required
+              className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all text-sm min-h-[52px]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Descripción</label>
+            <textarea
+              value={form.description}
+              onChange={e => onFormChange(f => ({ ...f, description: e.target.value }))}
+              placeholder="Breve descripción de la app para la tienda"
+              rows={3}
+              className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all text-sm resize-none leading-relaxed"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+              Categoría <span className="text-[var(--text-muted)] font-normal ml-1.5 text-[12px]">(opcional)</span>
+            </label>
+            <select
+              value={form.category_id}
+              onChange={e => onFormChange(f => ({ ...f, category_id: e.target.value }))}
+              className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-secondary)] focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all text-sm appearance-none cursor-pointer min-h-[52px]"
+            >
+              <option value="" style={{ background: 'var(--bg-base)' }}>Sin categoría</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id} style={{ background: 'var(--bg-base)' }}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            disabled={!form.name.trim() || loading}
+            className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold text-sm hover:from-violet-500 hover:to-indigo-500 active:scale-[0.97] disabled:opacity-35 disabled:pointer-events-none shadow-lg shadow-violet-500/20 transition-all min-h-[52px] touch-manipulation"
+          >
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+            {loading ? 'Publicando…' : 'Publicar en la tienda'}
+          </button>
+        </form>
+      )}
+    </div>
+  )
+}
 
 /* ── Example strip ─────────────────────────────────────────────────────── */
 function ExampleStrip({ examples, onSelect }) {
@@ -599,103 +977,82 @@ function GuidedQuestionView({
   onSelectChip, onToggleCustom, onCustomTextChange, onNext, onBack, hasAnswer,
 }) {
   const q = questions[step]
+  if (!q) return null
   const isLast = step === questions.length - 1
-  const selected = !showCustom ? (answers[q.id] || null) : null
 
   return (
-    <div className="space-y-4 animate-fade-up">
-      {/* Step dots + progress */}
-      <div className="flex items-center gap-3">
-        <div className="flex gap-2">
-          {questions.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 rounded-full transition-all duration-500 ${
-                i <= step
-                  ? 'w-8 bg-gradient-to-r from-violet-500 to-indigo-500'
-                  : 'w-4 bg-white/[0.06]'
-              }`}
-            />
-          ))}
-        </div>
-        <span className="text-[12px] text-[var(--text-muted)] font-medium ml-auto">
-          {step + 1} de {questions.length}
-        </span>
+    <div className="space-y-5 animate-fade-up">
+      {/* Progress */}
+      <div className="flex items-center gap-2">
+        {questions.map((_, i) => (
+          <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+            i < step ? 'bg-violet-500' : i === step ? 'bg-violet-400' : 'bg-white/[0.08]'
+          }`} />
+        ))}
       </div>
 
-      {/* Question card */}
-      <div className="rounded-2xl bg-[var(--bg-surface)] border border-violet-500/12 p-5 sm:p-6 space-y-5">
-        <p className="text-base sm:text-lg font-semibold text-white leading-snug">{q.text}</p>
+      <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-5 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-7 h-7 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
+            <span className="text-[12px] font-bold text-violet-400">{step + 1}</span>
+          </div>
+          <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug pt-0.5">{q.text}</p>
+        </div>
 
-        {/* Options */}
-        <div className="space-y-3">
-          {q.options?.map((opt) => (
+        <div className="flex flex-wrap gap-2">
+          {q.options.map((opt) => (
             <button
               key={opt}
               type="button"
               onClick={() => onSelectChip(q.id, opt)}
-              className={`w-full flex items-center gap-3.5 text-left px-4 py-3.5 rounded-xl border text-sm transition-all min-h-[52px] touch-manipulation active:scale-[0.98] ${
-                selected === opt
-                  ? 'bg-violet-500/15 border-violet-500/35 text-white font-medium'
-                  : 'bg-[var(--bg-base)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]'
-              }`}
+              className={`px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition-all touch-manipulation min-h-[44px] text-left leading-snug
+                ${answers[q.id] === opt && !showCustom
+                  ? 'bg-violet-500/20 border border-violet-500/40 text-violet-200'
+                  : 'bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'
+                }`}
             >
-              {/* Radio indicator */}
-              <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                selected === opt ? 'border-violet-400 bg-violet-500/25' : 'border-[var(--text-muted)]/40'
-              }`}>
-                {selected === opt && <span className="w-2 h-2 rounded-full bg-violet-400" />}
-              </span>
-              <span className="leading-snug">{opt}</span>
+              {opt}
             </button>
           ))}
 
-          {/* Custom answer option */}
           <button
             type="button"
             onClick={onToggleCustom}
-            className={`w-full flex items-center gap-3.5 text-left px-4 py-3.5 rounded-xl border text-sm transition-all min-h-[52px] touch-manipulation active:scale-[0.98] ${
-              showCustom
-                ? 'bg-indigo-500/12 border-indigo-500/25 text-indigo-300'
-                : 'bg-[var(--bg-base)] border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--border-hover)] hover:text-[var(--text-secondary)]'
-            }`}
+            className={`px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition-all touch-manipulation min-h-[44px]
+              ${showCustom
+                ? 'bg-violet-500/20 border border-violet-500/40 text-violet-200'
+                : 'bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'
+              }`}
           >
-            <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-              showCustom ? 'border-indigo-400 bg-indigo-500/25' : 'border-[var(--text-muted)]/40'
-            }`}>
-              {showCustom && <span className="w-2 h-2 rounded-full bg-indigo-400" />}
-            </span>
-            <PenLine size={14} className="shrink-0" />
-            <span>Escribir mi propia respuesta</span>
+            Otra respuesta…
           </button>
-
-          {showCustom && (
-            <textarea
-              autoFocus
-              value={customText}
-              onChange={e => onCustomTextChange(e.target.value)}
-              placeholder="Tu respuesta…"
-              rows={2}
-              className="w-full bg-[var(--bg-base)] border border-indigo-500/25 rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all text-sm resize-none ml-0"
-            />
-          )}
         </div>
+
+        {showCustom && (
+          <textarea
+            autoFocus
+            value={customText}
+            onChange={e => onCustomTextChange(e.target.value)}
+            placeholder="Escribe tu respuesta…"
+            rows={2}
+            className="w-full bg-[var(--bg-base)] border border-violet-500/30 rounded-xl px-4 py-3 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/20 transition-all text-sm resize-none"
+          />
+        )}
       </div>
 
-      {/* Navigation */}
       <div className="flex gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
+          className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
         >
-          <ArrowLeft size={15} />
-          <span className="hidden sm:inline">{step === 0 ? 'Volver' : 'Anterior'}</span>
+          <ArrowLeft size={15} /> Atrás
         </button>
         <button
           type="button"
           onClick={onNext}
-          className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold text-sm hover:from-violet-500 hover:to-indigo-500 active:scale-[0.97] shadow-lg shadow-indigo-500/20 transition-all min-h-[52px] touch-manipulation"
+          disabled={!hasAnswer}
+          className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold hover:from-violet-500 hover:to-indigo-500 active:scale-[0.97] disabled:opacity-35 disabled:pointer-events-none shadow-lg shadow-indigo-500/20 transition-all min-h-[52px] touch-manipulation"
         >
           {isLast ? <><Sparkles size={15} /> Generar app</> : <>Siguiente <ArrowRight size={15} /></>}
         </button>
@@ -781,7 +1138,7 @@ function CodeViewer({ codeRef, code, streaming }) {
   )
 }
 
-/* ── Debug / improve panel ─────────────────────────────────────────────── */
+/* ── Debug / improve panel (post-create) ───────────────────────────────── */
 function DebugPanel({ feedback, onFeedbackChange, onSubmit }) {
   const [open, setOpen] = useState(false)
 
@@ -807,7 +1164,7 @@ function DebugPanel({ feedback, onFeedbackChange, onSubmit }) {
           <textarea
             value={feedback}
             onChange={e => onFeedbackChange(e.target.value)}
-            placeholder='Ej: "El botón de reset no hace nada. Quiero que también guarde el historial y que los colores sean más vibrantes."'
+            placeholder={'Ej: "El botón de reset no hace nada. Quiero que también guarde el historial y que los colores sean más vibrantes."'}
             required
             rows={4}
             className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all text-sm resize-none leading-relaxed"
