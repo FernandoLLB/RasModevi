@@ -205,20 +205,85 @@ export default function AICreatePage() {
   const isStreaming = phase === 'streaming' || phase === 'debug_streaming'
 
   /* ═════════════════════════════════════════════════════════════════════ */
+
+  const showResult = isStreaming || phase === 'done' || phase === 'error'
+  const showForm   = phase === 'idle' || phase === 'guided_questions'
+
+  const resultPanel = showResult && (
+    <div className="space-y-4 animate-fade-up">
+      {(isStreaming || phase === 'done') && (
+        <PipelineSteps steps={activeSteps} currentStep={currentStep} stepIdx={stepIdx} isStreaming={isStreaming} isDone={phase === 'done'} />
+      )}
+      {codeText && <CodeViewer codeRef={codeRef} code={codeText} streaming={isStreaming} />}
+      {phase === 'error' && (
+        <div className="flex items-start gap-3.5 p-4 sm:p-5 rounded-2xl bg-red-500/8 border border-red-500/15">
+          <div className="w-9 h-9 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+            <AlertCircle size={16} className="text-red-400" />
+          </div>
+          <div className="pt-1">
+            <p className="text-sm font-semibold text-red-300">Error al generar</p>
+            <p className="text-[13px] text-red-400/70 mt-1 leading-relaxed">{errorMsg}</p>
+          </div>
+        </div>
+      )}
+      {phase === 'done' && resultApp && (
+        <div className="rounded-2xl bg-emerald-500/6 border border-emerald-500/15 p-4 sm:p-5">
+          <div className="flex items-start gap-3.5 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
+              <Check size={18} className="text-emerald-400" strokeWidth={2.5} />
+            </div>
+            <div className="pt-0.5">
+              <p className="text-sm font-semibold text-white leading-snug">{resultApp.message}</p>
+              <p className="text-[13px] text-[var(--text-secondary)] mt-1">App lista en el dispositivo.</p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {resultApp.slug && (
+              <Link
+                to={`/app/${resultApp.slug}`}
+                className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-300 text-sm font-semibold hover:bg-emerald-500/25 active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
+              >
+                Ver en tienda <ChevronRight size={15} />
+              </Link>
+            )}
+            <Link
+              to="/developer"
+              className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
+            >
+              Panel developer
+            </Link>
+          </div>
+        </div>
+      )}
+      {phase === 'done' && resultApp?.installed_id && (
+        <DebugPanel feedback={debugFeedback} onFeedbackChange={setDebugFeedback} onSubmit={handleDebugSubmit} />
+      )}
+      {(phase === 'done' || phase === 'error') && (
+        <button
+          onClick={reset}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
+        >
+          <RotateCcw size={15} />
+          Crear otra app
+        </button>
+      )}
+    </div>
+  )
+
   return (
     <DeviceLayout hideSearch>
       <div className="relative min-h-[calc(100vh-64px)]">
 
-        {/* ambient glow — decorative, behind content */}
+        {/* ambient glow */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-80 overflow-hidden">
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full opacity-[0.07]"
+          <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full opacity-[0.06]"
                style={{ background: 'radial-gradient(ellipse, #6366f1 0%, transparent 70%)' }} />
         </div>
 
-        <div className="relative max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-10">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 xl:px-8 pt-6 pb-10">
 
           {/* ── HEADER ────────────────────────────────────────────────── */}
-          <header className="mb-8 animate-fade-in">
+          <header className="mb-6 animate-fade-in">
             <div className="flex items-center gap-3.5">
               <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0">
                 <Sparkles size={20} className="text-white" />
@@ -235,236 +300,153 @@ export default function AICreatePage() {
             </div>
           </header>
 
-          {/* ══════════════════ IDLE PHASE ══════════════════ */}
-          {phase === 'idle' && (
-            <div className="space-y-5 animate-fade-up">
+          {/* ── TWO-COLUMN only when result is active; centered single col otherwise ── */}
+          <div className={showResult
+            ? 'lg:grid lg:grid-cols-[420px_1fr] lg:gap-8 xl:grid-cols-[460px_1fr] xl:gap-10'
+            : 'max-w-2xl mx-auto'
+          }>
 
-              {/* Mode segmented control */}
-              <div className="relative flex p-1.5 gap-1.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)]">
-                {/* sliding pill */}
-                <div
-                  className="absolute top-1.5 bottom-1.5 rounded-xl bg-gradient-to-r from-violet-600/30 to-indigo-600/30 border border-violet-500/20 transition-all duration-300 ease-out"
-                  style={{
-                    width: 'calc(50% - 8px)',
-                    left: mode === 'libre' ? '6px' : 'calc(50% + 2px)',
-                  }}
-                />
-                {[
-                  { key: 'libre',  label: 'Modo libre',  icon: PenLine,  sub: 'Tú describes' },
-                  { key: 'guiado', label: 'Modo guiado', icon: Wand2,    sub: 'Te guiamos' },
-                ].map(({ key, label, icon: Icon, sub }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setMode(key)}
-                    className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3.5 rounded-xl text-center transition-colors touch-manipulation min-h-[64px]
-                      ${mode === key ? 'text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Icon size={15} />
-                      <span className="text-sm font-semibold">{label}</span>
-                    </span>
-                    <span className="text-[11px] opacity-60">{sub}</span>
-                  </button>
-                ))}
-              </div>
+            {/* ══ LEFT COLUMN: Form / Questions ══ */}
+            <div className={showResult ? 'hidden lg:block' : ''}>
 
-              {/* ── Example ideas — horizontal scroll on small, grid on wide ── */}
-              <ExampleStrip
-                examples={EXAMPLES}
-                onSelect={(ex) => setForm(f => ({ ...f, name: ex.name, description: ex.full }))}
-              />
+              {/* ── IDLE ── */}
+              {phase === 'idle' && (
+                <div className="space-y-5 animate-fade-up">
 
-              {/* ── LIBRE FORM ── */}
-              {mode === 'libre' && (
-                <form onSubmit={handleLibreSubmit} className="space-y-4">
-                  <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5 space-y-4">
-
-                    <InputField
-                      label="Nombre de la app"
-                      value={form.name}
-                      onChange={v => setForm(f => ({ ...f, name: v }))}
-                      placeholder="Ej: Monitor de Plantas"
-                      required
+                  {/* Mode segmented control */}
+                  <div className="relative flex p-1.5 gap-1.5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)]">
+                    <div
+                      className="absolute top-1.5 bottom-1.5 rounded-xl bg-gradient-to-r from-violet-600/30 to-indigo-600/30 border border-violet-500/20 transition-all duration-300 ease-out"
+                      style={{ width: 'calc(50% - 8px)', left: mode === 'libre' ? '6px' : 'calc(50% + 2px)' }}
                     />
-
-                    <div>
-                      <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-                        Descripción detallada
-                      </label>
-                      <textarea
-                        value={form.description}
-                        onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                        placeholder="Describe qué hace la app, sus funciones, botones, si guarda datos… Cuanto más detallada, mejor resultado."
-                        required
-                        rows={4}
-                        className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-1 focus:ring-[var(--primary)]/20 transition-all text-sm resize-none leading-relaxed"
-                      />
-                    </div>
-
-                    <CategorySelect
-                      value={form.category_id}
-                      onChange={v => setForm(f => ({ ...f, category_id: v }))}
-                      categories={categories}
-                    />
-                  </div>
-
-                  {!isDeveloper && <DeveloperWarning />}
-
-                  <PrimaryButton
-                    type="submit"
-                    disabled={!isDeveloper || !form.name.trim() || !form.description.trim()}
-                    icon={Sparkles}
-                    label="Generar con Claude"
-                  />
-                </form>
-              )}
-
-              {/* ── GUIDED START ── */}
-              {mode === 'guiado' && (
-                <div className="space-y-4">
-                  <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5 space-y-4">
-                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                      La IA te hará <strong className="text-violet-400 font-semibold">3 preguntas</strong> con opciones para concretar tu idea antes de generar.
-                    </p>
-
-                    <InputField
-                      label="Nombre de la app"
-                      value={form.name}
-                      onChange={v => setForm(f => ({ ...f, name: v }))}
-                      placeholder="Ej: Diario de Sueño"
-                    />
-
-                    <InputField
-                      label="¿Alguna idea inicial?"
-                      optional
-                      value={form.description}
-                      onChange={v => setForm(f => ({ ...f, description: v }))}
-                      placeholder="Ej: quiero registrar mis horas de sueño cada día…"
-                    />
-
-                    <CategorySelect
-                      value={form.category_id}
-                      onChange={v => setForm(f => ({ ...f, category_id: v }))}
-                      categories={categories}
-                    />
-                  </div>
-
-                  {!isDeveloper && <DeveloperWarning />}
-
-                  <PrimaryButton
-                    onClick={handleStartGuided}
-                    disabled={!isDeveloper || !form.name.trim() || guidedLoading}
-                    icon={guidedLoading ? Loader2 : Wand2}
-                    iconSpin={guidedLoading}
-                    label={guidedLoading ? 'Preparando preguntas…' : 'Empezar modo guiado'}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ══════════════════ GUIDED QUESTIONS ══════════════════ */}
-          {phase === 'guided_questions' && guidedQuestions.length > 0 && (
-            <GuidedQuestionView
-              questions={guidedQuestions}
-              step={guidedStep}
-              answers={guidedAnswers}
-              showCustom={showCustom}
-              customText={customText}
-              onSelectChip={selectChip}
-              onToggleCustom={() => {
-                setShowCustom(v => !v)
-                if (!showCustom) setGuidedAnswers(a => ({ ...a, [guidedQuestions[guidedStep].id]: '' }))
-                setCustomText('')
-              }}
-              onCustomTextChange={setCustomText}
-              onNext={handleGuidedNext}
-              onBack={handleGuidedBack}
-              hasAnswer={!!currentGuidedAnswer()}
-            />
-          )}
-
-          {/* ══════════════════ STREAMING / RESULT ══════════════════ */}
-          {(isStreaming || phase === 'done' || phase === 'error') && (
-            <div className="space-y-4 animate-fade-up">
-
-              {/* Pipeline steps */}
-              {(isStreaming || phase === 'done') && (
-                <PipelineSteps steps={activeSteps} currentStep={currentStep} stepIdx={stepIdx} isStreaming={isStreaming} isDone={phase === 'done'} />
-              )}
-
-              {/* Code viewer */}
-              {codeText && (
-                <CodeViewer codeRef={codeRef} code={codeText} streaming={isStreaming} />
-              )}
-
-              {/* Error */}
-              {phase === 'error' && (
-                <div className="flex items-start gap-3.5 p-4 sm:p-5 rounded-2xl bg-red-500/8 border border-red-500/15">
-                  <div className="w-9 h-9 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
-                    <AlertCircle size={16} className="text-red-400" />
-                  </div>
-                  <div className="pt-1">
-                    <p className="text-sm font-semibold text-red-300">Error al generar</p>
-                    <p className="text-[13px] text-red-400/70 mt-1 leading-relaxed">{errorMsg}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Success */}
-              {phase === 'done' && resultApp && (
-                <div className="rounded-2xl bg-emerald-500/6 border border-emerald-500/15 p-4 sm:p-5">
-                  <div className="flex items-start gap-3.5 mb-5">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
-                      <Check size={18} className="text-emerald-400" strokeWidth={2.5} />
-                    </div>
-                    <div className="pt-0.5">
-                      <p className="text-sm font-semibold text-white leading-snug">{resultApp.message}</p>
-                      <p className="text-[13px] text-[var(--text-secondary)] mt-1">App lista en el dispositivo.</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    {resultApp.slug && (
-                      <Link
-                        to={`/app/${resultApp.slug}`}
-                        className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-300 text-sm font-semibold hover:bg-emerald-500/25 active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
+                    {[
+                      { key: 'libre',  label: 'Modo libre',  icon: PenLine, sub: 'Tú describes' },
+                      { key: 'guiado', label: 'Modo guiado', icon: Wand2,   sub: 'Te guiamos' },
+                    ].map(({ key, label, icon: Icon, sub }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setMode(key)}
+                        className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3.5 rounded-xl text-center transition-colors touch-manipulation min-h-[64px]
+                          ${mode === key ? 'text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
                       >
-                        Ver en tienda <ChevronRight size={15} />
-                      </Link>
-                    )}
-                    <Link
-                      to="/developer"
-                      className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
-                    >
-                      Panel developer
-                    </Link>
+                        <span className="flex items-center gap-2">
+                          <Icon size={15} />
+                          <span className="text-sm font-semibold">{label}</span>
+                        </span>
+                        <span className="text-[11px] opacity-60">{sub}</span>
+                      </button>
+                    ))}
                   </div>
+
+                  <ExampleStrip
+                    examples={EXAMPLES}
+                    onSelect={(ex) => setForm(f => ({ ...f, name: ex.name, description: ex.full }))}
+                  />
+
+                  {mode === 'libre' && (
+                    <form onSubmit={handleLibreSubmit} className="space-y-4">
+                      <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5 space-y-4">
+                        <InputField label="Nombre de la app" value={form.name}
+                          onChange={v => setForm(f => ({ ...f, name: v }))}
+                          placeholder="Ej: Monitor de Plantas" required />
+                        <div>
+                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Descripción detallada</label>
+                          <textarea
+                            value={form.description}
+                            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                            placeholder="Describe qué hace la app, sus funciones, botones, si guarda datos… Cuanto más detallada, mejor resultado."
+                            required rows={5}
+                            className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-1 focus:ring-[var(--primary)]/20 transition-all text-sm resize-none leading-relaxed"
+                          />
+                        </div>
+                        <CategorySelect value={form.category_id}
+                          onChange={v => setForm(f => ({ ...f, category_id: v }))} categories={categories} />
+                      </div>
+                      {!isDeveloper && <DeveloperWarning />}
+                      <PrimaryButton type="submit"
+                        disabled={!isDeveloper || !form.name.trim() || !form.description.trim()}
+                        icon={Sparkles} label="Generar con Claude" />
+                    </form>
+                  )}
+
+                  {mode === 'guiado' && (
+                    <div className="space-y-4">
+                      <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5 space-y-4">
+                        <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                          La IA te hará <strong className="text-violet-400 font-semibold">3 preguntas</strong> con opciones para concretar tu idea antes de generar.
+                        </p>
+                        <InputField label="Nombre de la app" value={form.name}
+                          onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="Ej: Diario de Sueño" />
+                        <InputField label="¿Alguna idea inicial?" optional value={form.description}
+                          onChange={v => setForm(f => ({ ...f, description: v }))}
+                          placeholder="Ej: quiero registrar mis horas de sueño cada día…" />
+                        <CategorySelect value={form.category_id}
+                          onChange={v => setForm(f => ({ ...f, category_id: v }))} categories={categories} />
+                      </div>
+                      {!isDeveloper && <DeveloperWarning />}
+                      <PrimaryButton onClick={handleStartGuided}
+                        disabled={!isDeveloper || !form.name.trim() || guidedLoading}
+                        icon={guidedLoading ? Loader2 : Wand2} iconSpin={guidedLoading}
+                        label={guidedLoading ? 'Preparando preguntas…' : 'Empezar modo guiado'} />
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Debug panel */}
-              {phase === 'done' && resultApp?.installed_id && (
-                <DebugPanel
-                  feedback={debugFeedback}
-                  onFeedbackChange={setDebugFeedback}
-                  onSubmit={handleDebugSubmit}
+              {/* ── GUIDED QUESTIONS ── */}
+              {phase === 'guided_questions' && guidedQuestions.length > 0 && (
+                <GuidedQuestionView
+                  questions={guidedQuestions} step={guidedStep} answers={guidedAnswers}
+                  showCustom={showCustom} customText={customText}
+                  onSelectChip={selectChip}
+                  onToggleCustom={() => {
+                    setShowCustom(v => !v)
+                    if (!showCustom) setGuidedAnswers(a => ({ ...a, [guidedQuestions[guidedStep].id]: '' }))
+                    setCustomText('')
+                  }}
+                  onCustomTextChange={setCustomText}
+                  onNext={handleGuidedNext} onBack={handleGuidedBack}
+                  hasAnswer={!!currentGuidedAnswer()}
                 />
               )}
 
-              {/* Reset */}
-              {(phase === 'done' || phase === 'error') && (
-                <button
-                  onClick={reset}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
-                >
-                  <RotateCcw size={15} />
-                  Crear otra app
-                </button>
+              {/* On desktop: show summary of submitted form while result is loading/done */}
+              {showResult && (
+                <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-5 space-y-3 animate-fade-in">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">Solicitud enviada</p>
+                  <p className="text-base font-bold text-[var(--text-primary)]">{form.name || '—'}</p>
+                  {form.description && (
+                    <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed line-clamp-6">{form.description}</p>
+                  )}
+                  <button
+                    onClick={reset}
+                    className="flex items-center gap-2 text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors pt-1 touch-manipulation"
+                  >
+                    <RotateCcw size={13} /> Nueva app
+                  </button>
+                </div>
               )}
             </div>
-          )}
 
+            {/* ══ RIGHT COLUMN: Result (always on desktop, mobile only when active) ══ */}
+            <div className={showForm ? 'hidden lg:flex lg:flex-col lg:justify-center' : ''}>
+              {showForm && (
+                /* Desktop idle placeholder */
+                <div className="hidden lg:flex flex-col items-center justify-center h-full min-h-[400px] rounded-2xl border border-dashed border-white/[0.06] p-8 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mb-4">
+                    <Sparkles size={28} className="text-violet-400/60" />
+                  </div>
+                  <p className="text-sm font-medium text-[var(--text-muted)]">El código generado aparecerá aquí</p>
+                  <p className="text-[12px] text-[var(--text-muted)]/60 mt-1.5 leading-relaxed max-w-[220px]">
+                    Rellena el formulario y pulsa Generar
+                  </p>
+                </div>
+              )}
+              {showResult && resultPanel}
+            </div>
+
+          </div>
         </div>
       </div>
     </DeviceLayout>
