@@ -821,23 +821,23 @@ function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeed
         )}
 
         {!loading && apps.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-0.5">
+          <div className="flex flex-col gap-1.5">
             {apps.map(app => {
               const isSelected = selected?.id === app.id
               const name = app.store_app?.name ?? `App #${app.id}`
+              const desc = app.store_app?.description
               const iconPath = app.store_app?.icon_path
               return (
                 <button
                   key={app.id}
                   type="button"
                   onClick={() => onSelect(isSelected ? null : app)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all touch-manipulation min-h-[80px] text-center
+                  className={`flex items-center gap-3 w-full px-3.5 py-3 rounded-xl border text-left transition-all touch-manipulation
                     ${isSelected
                       ? 'bg-violet-500/12 border-violet-500/40 ring-1 ring-violet-500/25'
-                      : 'bg-[var(--bg-base)] border-[var(--border)] hover:border-[var(--border-hover)]'
+                      : 'bg-[var(--bg-base)] border-[var(--border)] hover:border-[var(--border-hover)] active:bg-white/[0.03]'
                     }`}
                 >
-                  {/* Icon */}
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden
                     ${isSelected ? 'bg-violet-500/20' : 'bg-white/[0.04]'}`}>
                     {iconPath
@@ -845,12 +845,17 @@ function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeed
                       : <Sparkles size={16} className={isSelected ? 'text-violet-400' : 'text-[var(--text-muted)]'} />
                     }
                   </div>
-                  <p className={`text-[12px] font-medium leading-tight line-clamp-2 ${isSelected ? 'text-violet-200' : 'text-[var(--text-secondary)]'}`}>
-                    {name}
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium leading-tight truncate ${isSelected ? 'text-violet-200' : 'text-[var(--text-primary)]'}`}>
+                      {name}
+                    </p>
+                    {desc && (
+                      <p className="text-[12px] text-[var(--text-muted)] mt-0.5 truncate">{desc}</p>
+                    )}
+                  </div>
                   {isSelected && (
-                    <div className="w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center">
-                      <Check size={10} className="text-white" strokeWidth={3} />
+                    <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0">
+                      <Check size={11} className="text-white" strokeWidth={3} />
                     </div>
                   )}
                 </button>
