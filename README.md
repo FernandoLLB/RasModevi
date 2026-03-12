@@ -2,8 +2,6 @@
 
 Plataforma modular de aplicaciones para Raspberry Pi 5 con pantalla táctil. El dispositivo arranca directamente en una tienda de apps (sin escritorio visible), donde el usuario puede instalar aplicaciones creadas por la comunidad — o generarlas con IA. Las apps pueden acceder al hardware de la Pi mediante el SDK de ModevI.
 
-**Producción:** [modevi.es](https://modevi.es)
-
 ---
 
 ## Índice
