@@ -869,13 +869,16 @@ Estadísticas de la plataforma.
 
 ---
 
-## /api/ai — Generación de apps con IA
+## /api/ai — IA para apps
+
+> **Nota SSE:** Todos los endpoints SSE deben consumirse con `fetch + ReadableStream` y el header `Accept: text/event-stream`, **no** con `EventSource`. Esto permite obtener el código HTTP de error real (401, 500…) en caso de fallo.
 
 ### GET /api/ai/create-app
 
-Genera una app HTML completa usando Claude claude-opus-4-6 y la publica en la tienda automáticamente. Usa **Server-Sent Events (SSE)** — conéctate con `EventSource`.
+Genera una app HTML completa usando Claude claude-opus-4-6 y la publica en la tienda automáticamente. Devuelve **Server-Sent Events (SSE)**.
 
-**Auth:** JWT en query param (limitación del browser EventSource API)
+**Servidor:** Railway (`STORE_BASE`)
+**Auth:** JWT en query param (limitación: SSE no soporta headers custom)
 
 **Query params:**
 | Param | Tipo | Descripción |
@@ -889,19 +892,94 @@ Genera una app HTML completa usando Claude claude-opus-4-6 y la publica en la ti
 
 **Eventos SSE:**
 ```
-data: {"type": "status", "step": "connecting",  "message": "..."}
-data: {"type": "status", "step": "generating",  "message": "..."}
-data: {"type": "code_chunk", "text": "<chunk>"}   ← stream del HTML en tiempo real
-data: {"type": "status", "step": "describing",  "message": "..."}
-data: {"type": "status", "step": "packaging",   "message": "..."}
-data: {"type": "status", "step": "registering", "message": "..."}
-data: {"type": "done",   "store_app_id": 42, "installed_id": 7, "slug": "mi-app"}
-data: {"type": "error",  "message": "Descripción del error"}
+data: {"type": "status",     "step": "connecting",  "message": "..."}
+data: {"type": "status",     "step": "generating",  "message": "..."}
+data: {"type": "code_chunk", "text": "<chunk>"}       ← stream HTML en tiempo real
+data: {"type": "status",     "step": "describing",  "message": "..."}
+data: {"type": "status",     "step": "packaging",   "message": "..."}
+data: {"type": "status",     "step": "registering", "message": "..."}
+data: {"type": "done",       "app_id": 42, "installed_id": 7, "app_slug": "mi-app", "message": "..."}
+data: {"type": "error",      "message": "Descripción del error"}
 ```
 
 **Comportamiento:**
-- La descripción de la app se genera automáticamente con `claude-haiku-4-5` a partir del nombre y el prompt
-- El prompt original del usuario se almacena en `store_app.ai_prompt` y es visible en la página de detalle de la app
+- La descripción se genera automáticamente con `claude-haiku-4-5` a partir del nombre y el prompt
+- El prompt original se almacena en `store_apps.ai_prompt` (visible en la página de detalle)
 - La app se publica con `status=published` directamente (sin revisión)
-- La app se instala automáticamente en el dispositivo al completar la generación
+- La app se instala automáticamente en el dispositivo al completar
+
+---
+
+### GET /api/ai/debug-app
+
+Mejora una app ya instalada en el dispositivo aplicando el feedback del usuario. Devuelve **SSE**.
+
+**Servidor:** Pi (`DEVICE_BASE`) — necesita acceso al sistema de archivos local
+**Auth:** JWT en query param
+
+**Query params:**
+| Param | Tipo | Descripción |
+|---|---|---|
+| `installed_id` | int | ID de la app instalada (de `InstalledApp.id`) |
+| `feedback` | string (min 5) | Descripción de cambios/bugs a corregir |
+| `token` | string | JWT de acceso |
+
+**Rol requerido:** `developer` o `admin`
+
+**Eventos SSE:**
 ```
+data: {"type": "status",     "step": "connecting",  "message": "..."}
+data: {"type": "status",     "step": "generating",  "message": "..."}
+data: {"type": "code_chunk", "text": "<chunk>"}       ← stream HTML en tiempo real
+data: {"type": "status",     "step": "packaging",   "message": "..."}
+data: {"type": "done",       "app_id": 42, "installed_id": 7, "app_slug": "mi-app", "message": "..."}
+data: {"type": "error",      "message": "Descripción del error"}
+```
+
+**Comportamiento:**
+- Lee el `index.html` actual de `backend/installed/{installed_id}/`
+- Regenera el HTML completo con Claude aplicando el feedback
+- **Solo modifica el archivo local de la Pi** — la app original en la store queda intacta
+- Registra la acción en `ActivityLog`
+
+---
+
+### POST /api/ai/publish-improved
+
+Publica la versión actual de una app instalada como **nueva entrada** en la tienda. No modifica la app original.
+
+**Servidor:** Railway (`STORE_BASE`)
+**Auth:** `Authorization: Bearer <token>`
+
+**Body JSON:**
+```json
+{
+  "installed_id": 7,
+  "name": "Nombre de la nueva app",
+  "description": "Descripción para la tienda",
+  "category_id": 3
+}
+```
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `installed_id` | int | ID de la app instalada cuyo HTML se publicará |
+| `name` | string | Nombre de la nueva entrada en la tienda |
+| `description` | string | Descripción para la tienda |
+| `category_id` | int? | ID de categoría (opcional) |
+
+**Respuesta 200:**
+```json
+{
+  "app_id": 43,
+  "slug": "nombre-de-la-nueva-app",
+  "message": "App «Nombre» publicada en la tienda."
+}
+```
+
+**Comportamiento:**
+- Lee el `index.html` actual del dispositivo (`backend/installed/{installed_id}/`)
+- Crea un ZIP con el HTML y un `manifest.json` autogenerado
+- Sube el ZIP a Cloudflare R2
+- Crea una nueva `StoreApp` en MySQL con `status=published`
+- La app original no se modifica

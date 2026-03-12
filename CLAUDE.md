@@ -26,7 +26,7 @@ El proyecto está **implementado y funcional**. Backend + frontend completos con
 - `routers/hardware.py` — /api/hardware (sensores CRUD, GPIO, WebSocket stream)
 - `routers/notes.py` — /api/notes (CRUD notas)
 - `routers/system.py` — /api/system/{info,stats}
-- `routers/ai.py` — /api/ai/create-app (SSE streaming, genera apps HTML con Claude claude-opus-4-6)
+- `routers/ai.py` — /api/ai/create-app, /api/ai/debug-app, /api/ai/publish-improved (SSE streaming, genera y mejora apps HTML con Claude claude-opus-4-6)
 
 ## Modelos — dos archivos separados
 - `models_platform.py` → MySQL: User, Category, HardwareTag, StoreApp, store_app_hardware (M2M), AppRating
@@ -115,11 +115,13 @@ Max 50MB. Se extrae en backend/installed/{id}/
 - hardware.getSensors(), readGPIO(pin), writeGPIO(pin, val), streamSensor(id, cb)
 - notify.toast(msg, type)
 
-## Feature: Generación de Apps con IA
+## Feature: IA para Apps (Crear + Mejorar + Publicar)
+
+### Crear apps con IA
 - **Endpoint:** `GET /api/ai/create-app?name=...&description=...&category_id=...&token=JWT`
 - **Modelo:** `claude-opus-4-6`, max_tokens=32000
-- **Protocolo:** Server-Sent Events (SSE) — EventSource en el frontend
-- **JWT en query param** (limitación del browser EventSource API)
+- **Protocolo:** SSE — `fetch + ReadableStream` en el frontend (NO EventSource — ver nota abajo)
+- **JWT en query param** (limitación del browser: EventSource no soporta headers custom)
 - **Rol requerido:** developer o admin
 - **Pipeline:**
   1. connecting → llama a Anthropic API
@@ -128,6 +130,26 @@ Max 50MB. Se extrae en backend/installed/{id}/
   4. registering → inserta StoreApp en MySQL (status=published directo)
   5. done → instala en SQLite + ActivityLog
 - **Validación HTML:** elimina code fences, valida `<!DOCTYPE html>` y `</html>`
-- **Apps generadas:** single HTML file, dark theme (#0f0f1a), optimizado 800×480 táctil, sin CDN externos
+- **Apps generadas:** single HTML file, dark theme (#0f0f1a), optimizado táctil, sin CDN externos
+
+### Mejorar apps con IA (debug-app)
+- **Endpoint:** `GET /api/ai/debug-app?installed_id=...&feedback=...&token=JWT` — en la **Pi** (DEVICE_BASE)
+- **Pipeline:** connecting → generating (Mejorando) → packaging (Actualizando) → done
+- **Efecto:** modifica SOLO el index.html local instalado en la Pi. NO toca la store original.
+- **La app original en la tienda queda intacta.** El usuario decide si publicar la versión mejorada.
+
+### Publicar app instalada como nueva entrada en la tienda
+- **Endpoint:** `POST /api/ai/publish-improved` — en Railway (STORE_BASE), auth por header Bearer
+- **Body:** `{ installed_id, name, description, category_id? }`
+- **Proceso:** lee index.html de la Pi, crea ZIP, sube a R2, inserta nueva StoreApp en MySQL (published)
+- **Importante:** crea una NUEVA app en la tienda, nunca sobreescribe la original
+
+### Frontend — AICreatePage (/ai/create)
+- **Dos tabs principales:** "Crear app" (flujo existente) | "Mejorar app" (nuevo)
+- **Tab Mejorar:** grid de apps instaladas → selección → dos acciones independientes:
+  - Sección "Mejorar con IA": textarea + SSE streaming
+  - Sección "Publicar en la tienda": siempre disponible con la app seleccionada, independiente de si se mejoró en esta sesión
+- **SSE implementation:** `fetch + ReadableStream` con `Accept: text/event-stream`. Se usa en lugar de EventSource para obtener el código HTTP de error real. Eventos separados por `\n\n`.
+- **Nota crítica:** tras cambiar `ai.py`, reiniciar el backend en la Pi es obligatorio o las rutas nuevas no se registran y el catch-all SPA intercepta las peticiones.
 - **TopBar:** botón "Crear con IA" (icono Sparkles, color violeta) visible solo a developers
-- **Dependencia nueva:** `anthropic>=0.40.0` en requirements.txt
+- **Dependencia:** `anthropic>=0.40.0` en requirements.txt

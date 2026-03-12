@@ -343,10 +343,13 @@ WS     /api/hardware/sensors/:id/stream
 ### IA
 
 ```
-GET /api/ai/create-app?name=...&description=...&category_id=...&token=JWT
+GET  /api/ai/create-app?name=...&description=...&category_id=...&token=JWT
+GET  /api/ai/debug-app?installed_id=...&feedback=...&token=JWT         ← Pi (DEVICE_BASE)
+POST /api/ai/publish-improved   body: {installed_id, name, description, category_id?}
 ```
 
-Devuelve Server-Sent Events (SSE) con el progreso de generación.
+`create-app` y `debug-app` devuelven Server-Sent Events (SSE) con el progreso en tiempo real.
+`publish-improved` es un POST síncrono que publica la versión local instalada como nueva app en la tienda.
 
 ---
 
@@ -462,23 +465,39 @@ Límite: **50 MB**.
 
 ---
 
-## Generación de apps con IA
+## IA para apps — Crear, Mejorar y Publicar
 
-Los usuarios con rol `developer` o `admin` pueden generar apps automáticamente desde `/ai/create`.
+Los usuarios con rol `developer` o `admin` acceden a estas funciones desde `/ai/create`.
 
-**Flujo:**
-1. El usuario introduce nombre, descripción y categoría
-2. El frontend conecta via SSE a `/api/ai/create-app`
-3. Railway genera un HTML completo con Claude claude-opus-4-6 (streaming en tiempo real)
+### Crear nueva app
+
+1. El usuario introduce nombre, descripción y categoría (modo libre o guiado con preguntas)
+2. El frontend abre SSE a `/api/ai/create-app` en Railway
+3. Claude claude-opus-4-6 genera un HTML completo en streaming
 4. `claude-haiku-4-5` genera automáticamente una descripción legible para la tienda
-5. Se crea un ZIP con el HTML y un `manifest.json` autogenerado
-6. El ZIP se sube a **Cloudflare R2** — permanente, no se pierde en reinicios de Railway
-7. La app aparece publicada en la tienda inmediatamente con `package_url` apuntando a R2
-8. El usuario la instala en la Pi — la Pi sigue el redirect 302 al ZIP en R2
+5. Se crea un ZIP y se sube a **Cloudflare R2** (permanente, no se pierde en reinicios)
+6. La app aparece publicada en la tienda inmediatamente
+7. Se instala en la Pi automáticamente
 
-**Transparencia open source:** el prompt original del usuario se almacena en `store_apps.ai_prompt` y es visible en la página de detalle de la app (sección colapsable "Generada con IA — ver prompt").
+### Mejorar app instalada
 
-**Apps generadas:** single HTML file, dark theme (`#0f0f1a`), optimizadas para pantalla táctil 800×480. Las apps pueden usar las librerías del mirror local (Chart.js, Three.js, Alpine.js, Anime.js, Matter.js, Tone.js, Marked.js) referenciadas como `<script src="/api/sdk/libs/chart.js">` — sin CDN externo. El sistema prompt incluye patrones de robustez obligatorios: manejo de errores global, gestión de estado centralizada, timers con limpieza, fetch con timeout.
+1. En el tab "Mejorar", el usuario selecciona cualquier app instalada del grid
+2. Describe los cambios o bugs a corregir
+3. Claude regenera el HTML completo con las mejoras aplicadas (SSE via Pi)
+4. **Solo modifica los archivos locales de la Pi** — la app original en la tienda queda intacta
+5. El usuario puede probar la app y decidir si publicar la versión mejorada
+
+### Publicar versión mejorada en la tienda
+
+Disponible siempre que haya una app seleccionada en el tab "Mejorar", independientemente de si se mejoró en esa sesión. Crea una **nueva entrada** en la tienda sin tocar la original:
+
+- Rellena nombre, descripción y categoría
+- El backend lee el `index.html` actual de la Pi, crea un ZIP y lo sube a R2
+- Aparece publicada inmediatamente como nueva app
+
+**Transparencia open source:** el prompt original del usuario se almacena en `store_apps.ai_prompt` y es visible en la página de detalle (sección colapsable "Generada con IA — ver prompt").
+
+**Apps generadas:** single HTML file, dark theme (`#0f0f1a`), optimizadas para pantalla táctil. Usan el mirror local de librerías JS (Chart.js, Three.js, Alpine.js…) con `<script src="/api/sdk/libs/chart.js">` — sin CDN externo.
 
 ---
 
