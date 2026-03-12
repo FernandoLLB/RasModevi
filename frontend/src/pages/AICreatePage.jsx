@@ -260,6 +260,20 @@ export default function AICreatePage() {
     }
   }
 
+  const handleImproveAppSelect = (app) => {
+    setSelectedImproveApp(app)
+    setShowPublish(false); setPublishResult(null); setPublishLoading(false)
+    if (app) {
+      setPublishForm({
+        name: app.store_app?.name ?? `App #${app.id}`,
+        description: app.store_app?.description ?? '',
+        category_id: String(app.store_app?.category_id ?? ''),
+      })
+    } else {
+      setPublishForm({ name: '', description: '', category_id: '' })
+    }
+  }
+
   const handleImproveSubmit = async (e) => {
     e.preventDefault()
     if (!improveFeedback.trim() || !selectedImproveApp) return
@@ -286,7 +300,8 @@ export default function AICreatePage() {
   /* ── publish ──────────────────────────────────────────────────────────── */
   const handlePublish = async (e) => {
     e.preventDefault()
-    if (!publishForm.name.trim() || !resultApp?.installed_id) return
+    const installedId = selectedImproveApp?.id ?? resultApp?.installed_id
+    if (!publishForm.name.trim() || !installedId) return
     setPublishLoading(true)
     try {
       const token = await getToken()
@@ -294,7 +309,7 @@ export default function AICreatePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          installed_id: resultApp.installed_id,
+          installed_id: installedId,
           name: publishForm.name,
           description: publishForm.description,
           category_id: publishForm.category_id ? parseInt(publishForm.category_id) : null,
@@ -385,19 +400,7 @@ export default function AICreatePage() {
         <DebugPanel feedback={debugFeedback} onFeedbackChange={setDebugFeedback} onSubmit={handleDebugSubmit} />
       )}
 
-      {/* ── Publish panel (only after improve-tab result) ────────────────── */}
-      {phase === 'done' && resultApp?.installed_id && mainTab === 'mejorar' && (
-        <PublishPanel
-          open={showPublish}
-          onToggle={() => setShowPublish(v => !v)}
-          form={publishForm}
-          onFormChange={setPublishForm}
-          categories={categories}
-          onSubmit={handlePublish}
-          loading={publishLoading}
-          result={publishResult}
-        />
-      )}
+      {/* ── Publish panel removed from here — now lives in ImproveTab ──── */}
 
       {(phase === 'done' || phase === 'error') && (
         <button
@@ -587,12 +590,22 @@ export default function AICreatePage() {
                   loading={improveAppsLoading}
                   error={improveAppsError}
                   selected={selectedImproveApp}
-                  onSelect={setSelectedImproveApp}
+                  onSelect={handleImproveAppSelect}
                   feedback={improveFeedback}
                   onFeedbackChange={setImproveFeedback}
                   onSubmit={handleImproveSubmit}
                   onRefresh={fetchImproveApps}
                   isDeveloper={isDeveloper}
+                  publishProps={{
+                    open: showPublish,
+                    onToggle: () => setShowPublish(v => !v),
+                    form: publishForm,
+                    onFormChange: setPublishForm,
+                    categories,
+                    onSubmit: handlePublish,
+                    loading: publishLoading,
+                    result: publishResult,
+                  }}
                 />
               )}
 
@@ -658,13 +671,13 @@ export default function AICreatePage() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Improve tab ───────────────────────────────────────────────────────── */
-function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeedbackChange, onSubmit, onRefresh, isDeveloper }) {
+function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeedbackChange, onSubmit, onRefresh, isDeveloper, publishProps }) {
   return (
-    <form onSubmit={onSubmit} className="space-y-5 animate-fade-up">
+    <div className="space-y-5 animate-fade-up">
       {/* App selector */}
       <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
-          <label className="text-sm font-semibold text-[var(--text-primary)]">App a mejorar</label>
+          <label className="text-sm font-semibold text-[var(--text-primary)]">Selecciona una app</label>
           <button
             type="button"
             onClick={onRefresh}
@@ -736,32 +749,48 @@ function ImproveTab({ apps, loading, error, selected, onSelect, feedback, onFeed
         )}
       </div>
 
-      {/* Feedback textarea */}
-      <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5 space-y-3">
-        <label className="block text-sm font-semibold text-[var(--text-primary)]">
-          ¿Qué quieres cambiar o corregir?
-        </label>
-        <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed -mt-1">
-          Describe los bugs, mejoras o cambios visuales. Claude regenerará la app completa aplicando tus indicaciones.
+      {/* ── Actions (only when app selected) ── */}
+      {selected && (
+        <>
+          {/* Improve with AI */}
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="rounded-2xl bg-[var(--bg-surface)] border border-[var(--border)] p-4 sm:p-5 space-y-3">
+              <label className="block text-sm font-semibold text-[var(--text-primary)]">
+                Mejorar con IA
+              </label>
+              <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed -mt-1">
+                Describe los bugs, mejoras o cambios visuales. Claude regenerará la app completa aplicando tus indicaciones.
+              </p>
+              <textarea
+                value={feedback}
+                onChange={e => onFeedbackChange(e.target.value)}
+                placeholder={'Ej: "El botón de guardar no funciona. Quiero que los colores sean más vibrantes y que se muestre un contador total arriba."'}
+                rows={4}
+                className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all text-sm resize-none leading-relaxed"
+              />
+            </div>
+
+            {!isDeveloper && <DeveloperWarning />}
+
+            <PrimaryButton
+              type="submit"
+              disabled={!isDeveloper || !feedback.trim()}
+              icon={WrenchIcon}
+              label={`Mejorar «${selected.store_app?.name ?? `App #${selected.id}`}»`}
+            />
+          </form>
+
+          {/* Publish to store */}
+          <PublishPanel {...publishProps} />
+        </>
+      )}
+
+      {!selected && !loading && apps.length > 0 && (
+        <p className="text-center text-sm text-[var(--text-muted)] py-2">
+          Selecciona una app para mejorarla o publicarla
         </p>
-        <textarea
-          value={feedback}
-          onChange={e => onFeedbackChange(e.target.value)}
-          placeholder={'Ej: "El botón de guardar no funciona. Quiero que los colores sean más vibrantes y que se muestre un contador total arriba."'}
-          rows={4}
-          className="w-full bg-[var(--bg-base)] border border-[var(--border)] rounded-xl px-4 py-3.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all text-sm resize-none leading-relaxed"
-        />
-      </div>
-
-      {!isDeveloper && <DeveloperWarning />}
-
-      <PrimaryButton
-        type="submit"
-        disabled={!isDeveloper || !selected || !feedback.trim()}
-        icon={WrenchIcon}
-        label={selected ? `Mejorar «${selected.store_app?.name ?? `App #${selected.id}`}»` : 'Selecciona una app primero'}
-      />
-    </form>
+      )}
+    </div>
   )
 }
 
