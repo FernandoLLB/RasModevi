@@ -33,6 +33,11 @@ export function DeviceProvider({ children }) {
     try {
       await deviceApi.install(storeAppId)
       await refresh()
+    } catch (e) {
+      await refresh()
+      // 409 means already installed — not a real error, just sync state
+      const msg = String(e?.message || '')
+      if (!msg.includes('409') && !msg.toLowerCase().includes('already')) throw e
     } finally {
       setInstallingIds(s => { const n = new Set(s); n.delete(storeAppId); return n })
     }

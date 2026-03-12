@@ -1,10 +1,12 @@
-import { Download, Play, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { Download, Play, Loader2, AlertCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDevice } from '../../context/DeviceContext'
 
 export default function InstallButton({ storeApp, size = 'sm', fullWidth = false }) {
   const { installedApps, installingIds, install, activate } = useDevice()
   const navigate = useNavigate()
+  const [installError, setInstallError] = useState(null)
   const installed = installedApps.find(a => a.store_app_id === storeApp.id)
   const isInstalling = installingIds.has(storeApp.id)
 
@@ -25,14 +27,32 @@ export default function InstallButton({ storeApp, size = 'sm', fullWidth = false
   }
 
   if (!installed) {
+    const handleInstall = async () => {
+      setInstallError(null)
+      try {
+        await install(storeApp.id)
+      } catch (e) {
+        setInstallError(String(e?.message || 'Error al instalar'))
+      }
+    }
     return (
-      <button
-        onClick={() => install(storeApp.id)}
-        className={`${cls} bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white shadow-lg shadow-indigo-500/20`}
-      >
-        <Download size={size === 'sm' ? 15 : 16} />
-        Instalar
-      </button>
+      <div className={fullWidth ? 'w-full' : ''}>
+        <button
+          onClick={handleInstall}
+          className={`${cls} ${installError
+            ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30'
+            : 'bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white shadow-lg shadow-indigo-500/20'
+          }`}
+        >
+          {installError
+            ? <><AlertCircle size={size === 'sm' ? 15 : 16} /> Error — reintentar</>
+            : <><Download size={size === 'sm' ? 15 : 16} /> Instalar</>
+          }
+        </button>
+        {installError && (
+          <p className="text-[11px] text-red-400/80 mt-1 leading-snug">{installError}</p>
+        )}
+      </div>
     )
   }
 
