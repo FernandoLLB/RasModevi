@@ -110,19 +110,51 @@ export default function AICreatePage() {
   }
 
   const startSSE = (url, onDone) => {
-    const es = new EventSource(url)
-    esRef.current = es
-    es.onmessage = (e) => {
-      const d = JSON.parse(e.data)
-      if (d.type === 'status')     setCurrentStep(d.step)
-      else if (d.type === 'code_chunk') setCodeText(p => p + d.text)
-      else if (d.type === 'done') {
-        setCurrentStep('done'); setPhase('done'); setIsDebugMode(false); onDone(d); es.close()
-      } else if (d.type === 'error') {
-        setErrorMsg(d.message); setPhase('error'); es.close()
-      }
-    }
-    es.onerror = () => { setErrorMsg('Error de conexión con el servidor.'); setPhase('error'); es.close() }
+    const controller = new AbortController()
+    esRef.current = { close: () => controller.abort() }
+
+    fetch(url, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          let msg = `Error del servidor (${res.status})`
+          try { const b = await res.json(); msg = b.detail || msg } catch {}
+          setErrorMsg(msg); setPhase('error')
+          return
+        }
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          let nlnl = buffer.indexOf('\n\n')
+          while (nlnl !== -1) {
+            const event = buffer.slice(0, nlnl)
+            buffer = buffer.slice(nlnl + 2)
+            for (const line of event.split('\n')) {
+              if (!line.startsWith('data: ')) continue
+              try {
+                const d = JSON.parse(line.slice(6))
+                if (d.type === 'status') setCurrentStep(d.step)
+                else if (d.type === 'code_chunk') setCodeText(p => p + d.text)
+                else if (d.type === 'done') {
+                  setCurrentStep('done'); setPhase('done'); onDone(d)
+                } else if (d.type === 'error') {
+                  setErrorMsg(d.message); setPhase('error')
+                }
+              } catch {}
+            }
+            nlnl = buffer.indexOf('\n\n')
+          }
+        }
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          setErrorMsg(`Error de conexión: ${err.message}`)
+          setPhase('error')
+        }
+      })
   }
 
   /* ── generate ────────────────────────────────────────────────────────── */
