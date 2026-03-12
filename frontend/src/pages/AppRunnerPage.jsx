@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Maximize2 } from 'lucide-react'
 import { deviceApi } from '../api/device'
@@ -10,16 +10,26 @@ export default function AppRunnerPage() {
   const navigate = useNavigate()
   const iframeRef = useRef()
   const cacheBust = useRef(Date.now()).current
+  const hideTimerRef = useRef(null)
   const { installedApps } = useDevice()
   const [toast, setToast] = useState(null)
   const [showBack, setShowBack] = useState(true)
 
   const app = installedApps.find(a => a.id === parseInt(app_id))
 
+  const scheduleHide = useCallback(() => {
+    clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = setTimeout(() => setShowBack(false), 4000)
+  }, [])
+
+  const revealBack = useCallback(() => {
+    setShowBack(true)
+    scheduleHide()
+  }, [scheduleHide])
+
   useEffect(() => {
     deviceApi.launch(parseInt(app_id)).catch(console.error)
-
-    const timer = setTimeout(() => setShowBack(false), 3000)
+    scheduleHide()
 
     const handleMessage = (e) => {
       if (e.data?.type === 'modevi-toast') {
@@ -28,11 +38,11 @@ export default function AppRunnerPage() {
       }
     }
     window.addEventListener('message', handleMessage)
-    return () => { clearTimeout(timer); window.removeEventListener('message', handleMessage) }
-  }, [app_id])
+    return () => { clearTimeout(hideTimerRef.current); window.removeEventListener('message', handleMessage) }
+  }, [app_id, scheduleHide])
 
   const handleMouseMove = (e) => {
-    if (e.clientX < 80 || e.clientY < 60) setShowBack(true)
+    if (e.clientX < 80 || e.clientY < 60) revealBack()
   }
 
   if (!app) {
@@ -57,7 +67,7 @@ export default function AppRunnerPage() {
     : `${DEVICE_BASE}/installed/${app_id}/?v=${cacheBust}`
 
   return (
-    <div className="fixed inset-0 bg-black z-50" onMouseMove={handleMouseMove} onTouchStart={() => setShowBack(true)}>
+    <div className="fixed inset-0 bg-black z-50" onMouseMove={handleMouseMove}>
       <iframe
         ref={iframeRef}
         src={appUrl}
@@ -67,9 +77,16 @@ export default function AppRunnerPage() {
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-downloads"
       />
 
+      {/* Transparent hit zone — always on top of iframe, captures touch in top-left corner */}
+      <div
+        className="fixed top-0 left-0 w-20 h-20 z-[60]"
+        onTouchStart={revealBack}
+        onMouseEnter={revealBack}
+      />
+
       {/* Back + fullscreen buttons overlay — touch-friendly */}
       <div
-        className={`fixed top-0 left-0 p-3 sm:p-4 flex items-center gap-2 transition-opacity duration-500 ${showBack ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed top-0 left-0 p-3 sm:p-4 flex items-center gap-2 transition-opacity duration-500 z-[60] ${showBack ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       >
         <button
           onClick={() => navigate('/launcher')}
