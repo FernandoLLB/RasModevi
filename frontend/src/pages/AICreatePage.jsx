@@ -748,7 +748,7 @@ export default function AICreatePage() {
             </div>
 
             {/* ══ RIGHT COLUMN: Result (always on desktop, mobile only when active) ══ */}
-            <div className={showForm ? 'hidden' : 'hidden lg:flex lg:flex-col lg:justify-center'}>
+            <div className={showForm ? 'hidden' : 'block lg:flex lg:flex-col lg:justify-center'}>
               {showForm && (
                 /* Desktop idle placeholder */
                 <div className="hidden lg:flex flex-col items-center justify-center h-full min-h-[400px] rounded-2xl border border-dashed border-white/[0.06] p-8 text-center">
