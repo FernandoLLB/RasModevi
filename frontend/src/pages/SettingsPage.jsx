@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Settings, Cpu, Radio, Plus, Trash2, ChevronRight } from 'lucide-react'
+import { Settings, Cpu, Radio, Plus, Trash2, ChevronRight, Upload, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DeviceLayout from '../components/layout/DeviceLayout'
 import { systemApi } from '../api/system'
 import { api } from '../api/client'
+import { useDevice } from '../context/DeviceContext'
+import PublishModal from '../components/PublishModal'
 
 function SensorRow({ sensor, onDelete }) {
   return (
@@ -26,6 +28,9 @@ function SensorRow({ sensor, onDelete }) {
 export default function SettingsPage() {
   const [sysInfo, setSysInfo] = useState(null)
   const [sensors, setSensors] = useState([])
+  const [publishApp, setPublishApp] = useState(null)
+  const { installedApps } = useDevice()
+  const localApps = installedApps.filter(a => a.store_app?.status === 'local')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -90,6 +95,34 @@ export default function SettingsPage() {
           )}
         </section>
 
+        {/* Local AI apps */}
+        {localApps.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Apps creadas con IA</h2>
+            <div className="flex flex-col gap-2">
+              {localApps.map(app => (
+                <div key={app.id} className="card p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400 shrink-0">
+                    {app.store_app?.icon_path
+                      ? <img src={app.store_app.icon_path} alt="" className="w-10 h-10 rounded-xl object-cover" />
+                      : <Sparkles size={18} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{app.store_app?.name}</p>
+                    <p className="text-xs text-slate-500">Local · no publicada</p>
+                  </div>
+                  <button
+                    onClick={() => setPublishApp(app)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 transition-colors cursor-pointer min-h-[44px] shrink-0"
+                  >
+                    <Upload size={14} /> Publicar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Navigation */}
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Navegación</h2>
@@ -112,6 +145,7 @@ export default function SettingsPage() {
           </div>
         </section>
       </div>
+      {publishApp && <PublishModal app={publishApp} onClose={() => setPublishApp(null)} />}
     </DeviceLayout>
   )
 }

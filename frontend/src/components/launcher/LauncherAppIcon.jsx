@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { X, Upload } from 'lucide-react'
 import { useDevice } from '../../context/DeviceContext'
 import { deviceApi } from '../../api/device'
+import PublishModal from '../PublishModal'
 
 function AppIconVisual({ app, size }) {
   const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4', '#f97316']
@@ -50,6 +51,8 @@ export default function LauncherAppIcon({ app }) {
   const { activate, uninstall, activeApp } = useDevice()
   const navigate = useNavigate()
   const [showDelete, setShowDelete] = useState(false)
+  const [showPublish, setShowPublish] = useState(false)
+  const isLocal = app.store_app?.status === 'local'
   const longPressTimer = useRef(null)
   const longPressTriggered = useRef(false)
   const isActive = app.is_active
@@ -105,10 +108,19 @@ export default function LauncherAppIcon({ app }) {
             <X size={18} />
           </button>
         )}
+        {showDelete && isLocal && (
+          <button
+            onClick={e => { e.stopPropagation(); setShowDelete(false); setShowPublish(true) }}
+            className="absolute -top-3 -left-3 w-11 h-11 bg-violet-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-violet-500 transition-colors z-10 shadow-lg shadow-violet-500/40 min-w-[44px] min-h-[44px]"
+          >
+            <Upload size={16} />
+          </button>
+        )}
       </button>
       <span className="text-xs text-slate-300 font-medium text-center leading-tight max-w-[88px] line-clamp-2">
         {app.store_app?.name || 'App'}
       </span>
+      {showPublish && <PublishModal app={app} onClose={() => setShowPublish(false)} />}
     </div>
   )
 }
