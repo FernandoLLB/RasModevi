@@ -1162,14 +1162,16 @@ async def _stream(
         })
         return
 
-    # Validate HTML is complete (not truncated mid-generation)
-    stripped = html_code.strip().upper()
-    if not stripped.endswith("</HTML>"):
+    # Trim any text before <!DOCTYPE and after </html> (Claude sometimes adds explanations)
+    _start = re.search(r'<!DOCTYPE\s+html', html_code, re.IGNORECASE)
+    _end   = re.search(r'</html\s*>',       html_code, re.IGNORECASE)
+    if not _start or not _end:
         yield evt({
             "type": "error",
             "message": "El código generado quedó incompleto (truncado). Inténtalo de nuevo con una descripción más simple.",
         })
         return
+    html_code = html_code[_start.start():_end.end()]
 
     # ------------------------------------------------------------------ #
     # Package into ZIP                                                     #
@@ -1477,13 +1479,13 @@ async def _stream_debug(
     elif "```" in new_html:
         new_html = new_html.split("```", 1)[1].split("```", 1)[0].strip()
 
-    if not new_html.strip().upper().startswith("<!"):
+    # Trim any text before <!DOCTYPE and after </html> (Claude sometimes adds explanations)
+    start_match = re.search(r'<!DOCTYPE\s+html', new_html, re.IGNORECASE)
+    end_match   = re.search(r'</html\s*>',        new_html, re.IGNORECASE)
+    if not start_match or not end_match:
         yield evt({"type": "error", "message": "La IA no devolvió un HTML válido."})
         return
-
-    if not new_html.strip().upper().endswith("</HTML>"):
-        yield evt({"type": "error", "message": "El código generado quedó incompleto. Inténtalo de nuevo."})
-        return
+    new_html = new_html[start_match.start():end_match.end()]
 
     yield evt({"type": "status", "step": "packaging", "message": "Actualizando archivos..."})
 
