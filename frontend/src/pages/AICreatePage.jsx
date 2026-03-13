@@ -451,19 +451,19 @@ export default function AICreatePage() {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            {resultApp.slug && (
+            {resultApp.installed_id && (
               <Link
-                to={`/app/${resultApp.slug}`}
+                to={`/running/${resultApp.installed_id}`}
                 className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-300 text-sm font-semibold hover:bg-emerald-500/25 active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
               >
-                Ver en tienda <ChevronRight size={15} />
+                Abrir app <ChevronRight size={15} />
               </Link>
             )}
             <Link
               to="/"
               className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
             >
-              Ir al launcher
+              Mis apps
             </Link>
           </div>
         </div>
