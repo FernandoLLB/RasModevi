@@ -229,6 +229,8 @@ export default function AICreatePage() {
     const qs = new URLSearchParams({ name, description, token, model: selectedModel, ...(category_id ? { category_id } : {}) })
     startSSE(`${DEVICE_BASE}/api/ai/create-app?${qs}`, (d) => {
       setResultApp({ id: d.app_id, slug: d.app_slug, installed_id: d.installed_id, message: d.message })
+      setPublishForm({ name, description, category_id: category_id ? String(category_id) : '' })
+      setPublishResult(null)
     })
   }
 
@@ -474,7 +476,18 @@ export default function AICreatePage() {
         <DebugPanel feedback={debugFeedback} onFeedbackChange={setDebugFeedback} onSubmit={handleDebugSubmit} />
       )}
 
-      {/* ── Publish panel removed from here — now lives in ImproveTab ──── */}
+      {phase === 'done' && resultApp?.installed_id && mainTab === 'crear' && (
+        <PublishPanel
+          open={showPublish}
+          onToggle={() => setShowPublish(v => !v)}
+          form={publishForm}
+          onFormChange={setPublishForm}
+          categories={categories}
+          onSubmit={handlePublish}
+          loading={publishLoading}
+          result={publishResult}
+        />
+      )}
 
       {(phase === 'done' || phase === 'error') && (
         <button
