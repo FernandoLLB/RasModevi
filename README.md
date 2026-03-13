@@ -4,7 +4,7 @@ Plataforma modular de aplicaciones para Raspberry Pi 5 con pantalla táctil. El 
 
 ---
 
-## Índice
+## Indice
 
 - [Concepto](#concepto)
 - [Arquitectura](#arquitectura)
