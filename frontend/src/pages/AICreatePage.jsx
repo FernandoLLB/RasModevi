@@ -227,7 +227,7 @@ export default function AICreatePage() {
     if (!token) { setErrorMsg('Debes iniciar sesión.'); setPhase('error'); return }
     setPhase('streaming'); setCurrentStep('connecting'); setCodeText(''); setErrorMsg(''); setErrorDetail(''); setErrorOverloaded(false); setResultApp(null); setIsDebugMode(false)
     const qs = new URLSearchParams({ name, description, token, model: selectedModel, ...(category_id ? { category_id } : {}) })
-    startSSE(`${STORE_BASE}/api/ai/create-app?${qs}`, (d) => {
+    startSSE(`${DEVICE_BASE}/api/ai/create-app?${qs}`, (d) => {
       setResultApp({ id: d.app_id, slug: d.app_slug, installed_id: d.installed_id, message: d.message })
     })
   }
