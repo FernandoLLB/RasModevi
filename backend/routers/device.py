@@ -54,7 +54,7 @@ def _enrich(
         sa = store_apps.get(inst.store_app_id) if inst.store_app_id else None
         if sa:
             store_app_out = StoreAppOut.model_validate(sa)
-        elif inst.local_name:
+        elif inst.local_name:  # local app or store app deleted — use cached metadata
             # Locally-created app (no store entry) — build a synthetic representation
             store_app_out = StoreAppOut(
                 id=0,
@@ -151,7 +151,12 @@ async def install_app(
             detail={"detail": "App is already installed", "code": "ALREADY_INSTALLED"},
         )
 
-    installed = InstalledApp(store_app_id=store_app_id, is_active=False)
+    installed = InstalledApp(
+        store_app_id=store_app_id,
+        is_active=False,
+        local_name=store_app.name,
+        local_icon_url=store_app.icon_path,
+    )
     device_db.add(installed)
     device_db.flush()
 

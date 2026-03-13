@@ -460,7 +460,7 @@ export default function AICreatePage() {
               </Link>
             )}
             <Link
-              to="/"
+              to="/launcher"
               className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-white hover:border-[var(--border-hover)] active:scale-[0.97] transition-all min-h-[52px] touch-manipulation"
             >
               Mis apps
