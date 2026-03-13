@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Upload, Globe, Loader2, AlertCircle, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { DEVICE_BASE, STORE_BASE } from '../api/client'
@@ -49,9 +50,9 @@ export default function PublishModal({ app, onClose }) {
     }
   }
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
@@ -163,6 +164,7 @@ export default function PublishModal({ app, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
