@@ -68,6 +68,17 @@ def _enrich(
         sa = store_apps.get(inst.store_app_id) if inst.store_app_id else None
         if sa:
             store_app_out = StoreAppOut.model_validate(sa)
+            # Proactively cache name+icon so they survive a future store deletion
+            if not inst.local_name:
+                inst.local_name = sa.name
+                inst.local_icon_url = sa.icon_path
+                try:
+                    from sqlalchemy.orm import object_session
+                    sess = object_session(inst)
+                    if sess:
+                        sess.commit()
+                except Exception:
+                    pass
         elif inst.local_name:  # local app or store app deleted — use cached metadata
             # Locally-created app (no store entry) — build a synthetic representation
             store_app_out = StoreAppOut(
