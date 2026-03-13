@@ -1,6 +1,7 @@
 """Device router — install/uninstall/activate apps on the device."""
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import zipfile
@@ -31,6 +32,19 @@ APP_DATA_DIR = BACKEND_DIR / "app_data"
 # ---------------------------------------------------------------------------
 # Helper — enrich InstalledApp list with StoreApp data from platform DB
 # ---------------------------------------------------------------------------
+
+
+def _read_manifest(inst: InstalledApp) -> tuple[str | None, str | None]:
+    """Read name and icon_path from manifest.json of an installed app."""
+    try:
+        install_path = Path(inst.install_path) if inst.install_path else INSTALLED_DIR / str(inst.id)
+        manifest_file = install_path / "manifest.json"
+        if manifest_file.exists():
+            data = json.loads(manifest_file.read_text(encoding="utf-8"))
+            return data.get("name"), data.get("icon_path") or data.get("icon_url")
+    except Exception:
+        pass
+    return None, None
 
 
 def _enrich(
@@ -75,7 +89,29 @@ def _enrich(
                 developer=None,
             )
         else:
-            store_app_out = None
+            # Last resort: read name from manifest.json of the installed files
+            name, icon = _read_manifest(inst)
+            if name:
+                store_app_out = StoreAppOut(
+                    id=0, name=name, slug=f"local-{inst.id}",
+                    description="", icon_path=icon, version="1.0.0",
+                    avg_rating=0.0, ratings_count=0, downloads_count=0,
+                    status="local", required_hardware=[], permissions=[],
+                    category_id=None, developer_id=0,
+                    created_at=inst.install_date, developer=None,
+                )
+                # Cache in DB so next call is instant
+                inst.local_name = name
+                inst.local_icon_url = icon
+                try:
+                    from sqlalchemy.orm import object_session
+                    sess = object_session(inst)
+                    if sess:
+                        sess.commit()
+                except Exception:
+                    pass
+            else:
+                store_app_out = None
         result.append(
             InstalledAppOut(
                 id=inst.id,
