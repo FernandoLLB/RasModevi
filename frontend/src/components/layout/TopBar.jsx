@@ -162,7 +162,7 @@ export default function TopBar({ onSearch, searchValue = '' }) {
 
       {/* ── Dropdown menu (phones + Pi 720px) ── */}
       {menuOpen && (
-        <div className="md:hidden border-t border-white/[0.06] px-4 py-3 flex flex-col gap-2 animate-fade-in">
+        <div className="md:hidden border-t border-white/[0.06] px-4 py-3 flex flex-col gap-3 animate-fade-in">
 
           {/* User profile */}
           {isAuthenticated ? (

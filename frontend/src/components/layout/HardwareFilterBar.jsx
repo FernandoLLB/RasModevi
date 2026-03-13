@@ -11,7 +11,7 @@ export default function HardwareFilterBar({ tags, selected, onSelect, sidebar = 
   const [open, setOpen] = useState(false)
 
   const tagList = (
-    <div className={`flex flex-wrap gap-2 ${sidebar ? '' : 'mb-4 animate-fade-in'}`}>
+    <div className={`flex flex-wrap gap-2.5 ${sidebar ? '' : 'mb-4 animate-fade-in'}`}>
       <button
         onClick={() => onSelect('')}
         className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer min-h-[44px] ${

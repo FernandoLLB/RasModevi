@@ -48,7 +48,7 @@ export default function CategoryBar({ categories, selected, onSelect, vertical =
         style={{ background: 'linear-gradient(to left, var(--bg-base), transparent)' }}
       />
       <div
-        className="flex gap-2 overflow-x-auto pb-2"
+        className="flex gap-2.5 overflow-x-auto pb-2"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {all.map(cat => {

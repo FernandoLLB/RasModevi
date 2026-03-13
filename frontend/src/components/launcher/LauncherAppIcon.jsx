@@ -100,9 +100,9 @@ export default function LauncherAppIcon({ app }) {
         {showDelete && (
           <button
             onClick={handleUninstall}
-            className="absolute -top-2.5 -right-2.5 w-9 h-9 bg-red-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-600 transition-colors z-10 shadow-lg shadow-red-500/40 min-w-[36px] min-h-[36px]"
+            className="absolute -top-3 -right-3 w-11 h-11 bg-red-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-600 transition-colors z-10 shadow-lg shadow-red-500/40 min-w-[44px] min-h-[44px]"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         )}
       </button>

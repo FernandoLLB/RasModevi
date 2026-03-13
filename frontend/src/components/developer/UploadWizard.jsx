@@ -85,7 +85,7 @@ export default function UploadWizard({ onSuccess }) {
             <div>
               <label className="block text-xs text-slate-400 mb-1.5">Categoría</label>
               <select value={form.category_id} onChange={e => setField('category_id', parseInt(e.target.value))}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none">
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none min-h-[48px]">
                 {Object.entries(CATEGORY_IDS).map(([name, id]) => (
                   <option key={id} value={id} style={{ background: '#1a1a2e' }}>{name}</option>
                 ))}
@@ -142,7 +142,7 @@ export default function UploadWizard({ onSuccess }) {
           <h3 className="text-lg font-bold">¡App enviada con éxito!</h3>
           <p className="text-sm text-slate-400">Tu app está pendiente de revisión. Una vez aprobada aparecerá en la tienda.</p>
           <button onClick={onSuccess}
-            className="px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 font-medium transition-colors cursor-pointer">
+            className="px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 font-medium transition-colors cursor-pointer min-h-[48px]">
             Ver mis apps
           </button>
         </div>
