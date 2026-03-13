@@ -23,8 +23,9 @@ function AppIconVisual({ app, size }) {
         <img
           src={app.store_app.icon_path}
           alt={name}
+          draggable={false}
           className="rounded-2xl object-cover"
-          style={{ width: size, height: size }}
+          style={{ width: size, height: size, WebkitTouchCallout: 'none', pointerEvents: 'none' }}
           onError={e => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex' }}
         />
         <div
@@ -85,14 +86,17 @@ export default function LauncherAppIcon({ app }) {
     setShowDelete(false)
   }
 
+  const noSelect = { WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }
+
   return (
-    <div className="flex flex-col items-center gap-2 relative animate-fade-up">
+    <div className="flex flex-col items-center gap-2 relative animate-fade-up" style={noSelect}>
       <button
         onClick={handleTap}
         onMouseDown={handlePressStart}
         onMouseUp={handlePressEnd}
         onTouchStart={handlePressStart}
         onTouchEnd={handlePressEnd}
+        onContextMenu={e => e.preventDefault()}
         className={`relative transition-all duration-200 cursor-pointer ${showDelete ? 'animate-[wiggle_0.3s_ease_infinite]' : 'active:scale-95'} ${isActive ? 'scale-105' : ''}`}
         style={{ background: 'none', border: 'none', padding: 0 }}
       >
