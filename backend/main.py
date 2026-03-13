@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from database import init_db
+from database import init_db, device_engine
 from seed import seed
 from routers import auth, store, developer, admin, device, sdk, hardware, notes, system, ai
 
@@ -31,9 +31,26 @@ INSTALLED_DIR = BACKEND_DIR / "installed"
 STORE_DIR = BACKEND_DIR / "store"
 
 
+def _migrate_device_db() -> None:
+    """Add columns introduced after initial schema creation."""
+    from sqlalchemy import text
+    with device_engine.connect() as conn:
+        for col, definition in [
+            ("local_name", "VARCHAR(200)"),
+            ("local_description", "TEXT"),
+            ("local_icon_url", "VARCHAR(500)"),
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE installed_apps ADD COLUMN {col} {definition}"))
+                conn.commit()
+            except Exception:
+                pass  # column already exists
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    _migrate_device_db()
     seed()
     # Ensure required directories exist
     (STORE_DIR / "packages").mkdir(parents=True, exist_ok=True)

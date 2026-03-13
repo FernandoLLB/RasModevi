@@ -52,6 +52,30 @@ def _enrich(
     result = []
     for inst in installed_list:
         sa = store_apps.get(inst.store_app_id) if inst.store_app_id else None
+        if sa:
+            store_app_out = StoreAppOut.model_validate(sa)
+        elif inst.local_name:
+            # Locally-created app (no store entry) — build a synthetic representation
+            store_app_out = StoreAppOut(
+                id=0,
+                name=inst.local_name,
+                slug=f"local-{inst.id}",
+                description=inst.local_description or "",
+                icon_path=inst.local_icon_url,
+                version="1.0.0",
+                avg_rating=0.0,
+                ratings_count=0,
+                downloads_count=0,
+                status="local",
+                required_hardware=[],
+                permissions=[],
+                category_id=None,
+                developer_id=0,
+                created_at=inst.install_date,
+                developer=None,
+            )
+        else:
+            store_app_out = None
         result.append(
             InstalledAppOut(
                 id=inst.id,
@@ -61,7 +85,7 @@ def _enrich(
                 last_launched=inst.last_launched,
                 launch_count=inst.launch_count,
                 install_path=inst.install_path,
-                store_app=StoreAppOut.model_validate(sa) if sa else None,
+                store_app=store_app_out,
             )
         )
     return result

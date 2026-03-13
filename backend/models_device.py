@@ -45,6 +45,10 @@ class InstalledApp(DeviceBase):
     last_launched: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     launch_count: Mapped[int] = mapped_column(Integer, default=0)
     install_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    # Metadata for locally-created apps (store_app_id is None)
+    local_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    local_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    local_icon_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     app_data: Mapped[List["AppData"]] = relationship(
         "AppData", back_populates="installed_app", cascade="all, delete-orphan"

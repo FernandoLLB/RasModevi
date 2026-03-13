@@ -1093,9 +1093,7 @@ def _emoji_icon_url(emoji: str) -> str:
 async def _stream(
     description: str,
     name: str,
-    category_id: int | None,
     user: User,
-    db: Session,
     device_db: Session,
     model: str = "claude-sonnet-4-6",
 ) -> AsyncGenerator[str, None]:
@@ -1228,53 +1226,15 @@ async def _stream(
     zip_bytes = zip_buf.getvalue()
 
     # ------------------------------------------------------------------ #
-    # Register in platform DB                                              #
+    # Install locally on device (no store registration)                   #
     # ------------------------------------------------------------------ #
-    yield evt({"type": "status", "step": "registering", "message": "Registrando en la tienda..."})
-
-    base_slug = _slugify(name) or "ai-app"
-    slug = base_slug
-    counter = 1
-    while db.query(StoreApp).filter(StoreApp.slug == slug).first():
-        slug = f"{base_slug}-{counter}"
-        counter += 1
-
-    store_app = StoreApp(
-        developer_id=user.id,
-        category_id=category_id,
-        name=name,
-        slug=slug,
-        description=app_description,
-        long_description=app_description,
-        ai_prompt=description,
-        icon_path=app_icon_url,
-        version="1.0.0",
-        permissions=[],
-        required_hardware=[],
-        status="published",  # AI-generated apps go live immediately
+    installed = InstalledApp(
+        store_app_id=None,
+        local_name=name,
+        local_description=app_description,
+        local_icon_url=app_icon_url,
+        is_active=False,
     )
-    db.add(store_app)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        slug = f"{slug}-{os.urandom(3).hex()}"
-        store_app.slug = slug
-        db.add(store_app)
-        db.commit()
-    db.refresh(store_app)
-
-    # Upload ZIP to R2
-    package_url = r2.upload(
-        key=f"packages/{store_app.id}/app.zip",
-        data=zip_bytes,
-        content_type="application/zip",
-    )
-    store_app.package_url = package_url
-    db.commit()
-
-    # Extract to installed/ and register on device DB
-    installed = InstalledApp(store_app_id=store_app.id, is_active=False)
     device_db.add(installed)
     device_db.flush()
 
@@ -1308,8 +1268,6 @@ async def _stream(
 
     yield evt({
         "type": "done",
-        "app_id": store_app.id,
-        "app_slug": slug,
         "installed_id": installed.id,
         "message": f"¡Aplicación «{name}» creada e instalada!",
     })
@@ -1319,7 +1277,6 @@ async def _stream(
 async def create_app_with_ai(
     description: str = Query(..., min_length=10, description="Descripción de la app"),
     name: str = Query(..., min_length=2, description="Nombre de la app"),
-    category_id: int = Query(default=None, description="ID de categoría (opcional)"),
     model: str = Query(default="claude-sonnet-4-6", description="Modelo Claude a usar"),
     token: str = Query(..., description="JWT access token"),
     db: Session = Depends(get_platform_db),
@@ -1349,7 +1306,7 @@ async def create_app_with_ai(
         raise HTTPException(status_code=400, detail=f"Modelo no permitido. Usa uno de: {', '.join(ALLOWED_MODELS)}")
 
     return StreamingResponse(
-        _stream(description, name, category_id, user, db, device_db, model=model),
+        _stream(description, name, user, device_db, model=model),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
