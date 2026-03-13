@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Upload } from 'lucide-react'
 import { useDevice } from '../../context/DeviceContext'
@@ -56,7 +56,23 @@ export default function LauncherAppIcon({ app }) {
   const isLocal = app.store_app?.status === 'local'
   const longPressTimer = useRef(null)
   const longPressTriggered = useRef(false)
+  const wrapperRef = useRef(null)
   const isActive = app.is_active
+
+  useEffect(() => {
+    if (!showDelete) return
+    const dismiss = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setShowDelete(false)
+      }
+    }
+    document.addEventListener('touchstart', dismiss, { passive: true })
+    document.addEventListener('mousedown', dismiss)
+    return () => {
+      document.removeEventListener('touchstart', dismiss)
+      document.removeEventListener('mousedown', dismiss)
+    }
+  }, [showDelete])
 
   const handlePressStart = () => {
     longPressTriggered.current = false
@@ -89,7 +105,7 @@ export default function LauncherAppIcon({ app }) {
   const noSelect = { WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }
 
   return (
-    <div className="flex flex-col items-center gap-2 relative animate-fade-up" style={noSelect}>
+    <div ref={wrapperRef} className="flex flex-col items-center gap-2 relative animate-fade-up" style={noSelect}>
       <button
         onClick={handleTap}
         onMouseDown={handlePressStart}
