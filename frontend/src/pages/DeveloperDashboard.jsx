@@ -40,9 +40,9 @@ export default function DeveloperDashboard() {
         <div className="max-w-lg mx-auto px-4 py-16 text-center">
           <Code2 size={40} className="text-slate-600 mx-auto mb-4" />
           <h2 className="text-lg font-bold mb-2">Portal Developer</h2>
-          <p className="text-slate-400 text-sm mb-6">Necesitas una cuenta de developer para acceder a esta sección.</p>
-          <Link to="/register" className="px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 font-semibold text-sm transition-colors inline-flex items-center min-h-[48px]">
-            Crear cuenta developer
+          <p className="text-slate-400 text-sm mb-6">Inicia sesión para acceder al portal de creación de apps.</p>
+          <Link to="/login" className="px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 font-semibold text-sm transition-colors inline-flex items-center min-h-[48px]">
+            Iniciar sesión
           </Link>
         </div>
       </DeviceLayout>

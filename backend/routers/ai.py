@@ -1299,8 +1299,6 @@ async def create_app_with_ai(
     user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
     if not user:
         raise HTTPException(status_code=401, detail="Usuario no encontrado")
-    if user.role not in ("developer", "admin"):
-        raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
 
     if model not in ALLOWED_MODELS:
         raise HTTPException(status_code=400, detail=f"Modelo no permitido. Usa uno de: {', '.join(ALLOWED_MODELS)}")
@@ -1335,8 +1333,6 @@ async def suggest_questions(
     Ask Haiku to generate 3-4 clarifying questions to help the user
     describe their app idea more precisely before generation.
     """
-    if current_user.role not in ("developer", "admin"):
-        raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -1538,8 +1534,6 @@ async def publish_improved_app(
     Publish an improved installed app as a new Store entry.
     Reads the current index.html, packages it, uploads to R2, and registers in MySQL.
     """
-    if user.role not in ("developer", "admin"):
-        raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
 
     installed = device_db.query(InstalledApp).filter(InstalledApp.id == body.installed_id).first()
     if not installed:
@@ -1661,8 +1655,6 @@ async def debug_app_with_ai(
     user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
     if not user:
         raise HTTPException(status_code=401, detail="Usuario no encontrado")
-    if user.role not in ("developer", "admin"):
-        raise HTTPException(status_code=403, detail="Se requiere rol developer o admin")
 
     if model not in ALLOWED_MODELS:
         raise HTTPException(status_code=400, detail=f"Modelo no permitido. Usa uno de: {', '.join(ALLOWED_MODELS)}")
