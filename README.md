@@ -248,12 +248,12 @@ Dos bases de datos separadas:
 
 | Tabla | Descripción |
 |-------|-------------|
-| `installed_apps` | Apps instaladas en este dispositivo |
+| `installed_apps` | Apps instaladas por usuario (`user_id` + `store_app_id` → unique). Cada usuario tiene su propia lista independiente. |
 | `app_data` | KV store por app (usado por el SDK) |
 | `activity_log` | Historial de instalaciones y lanzamientos |
-| `notes` | Notas de la app demo |
-| `device_settings` | Configuración del dispositivo |
-| `registered_sensors` | Sensores físicos conectados |
+| `notes` | Notas de la app demo — aisladas por `user_id` |
+| `device_settings` | Configuración del dispositivo (compartida por todos los usuarios) |
+| `registered_sensors` | Sensores físicos conectados (compartidos por todos los usuarios) |
 
 ---
 
@@ -311,6 +311,8 @@ POST /api/admin/apps/:id/reject
 ```
 
 ### Dispositivo (Pi)
+
+Todos los endpoints de dispositivo requieren autenticación JWT. Los resultados se filtran por el usuario autenticado (cada usuario ve solo sus apps instaladas y sus notas).
 
 ```
 GET  /api/device/apps
@@ -501,16 +503,20 @@ Disponible siempre que haya una app seleccionada en el tab "Mejorar", independie
 
 ## Limitaciones actuales y trabajo futuro
 
-### Modelo de dispositivo único
+### Modelo de dispositivo único — aislamiento por usuario
 
-El sistema actual asume **un único dispositivo Pi** por instalación. Cualquier usuario que acceda a `modevi.es` interactúa con la misma Pi (el mismo `device.db`, los mismos archivos instalados). Esto es adecuado para el prototipo pero limita el escalado a múltiples usuarios/dispositivos.
+La Pi es un dispositivo compartido: múltiples usuarios pueden iniciar sesión en la misma Pi (la misma `device.db`, los mismos archivos físicos). El aislamiento por usuario se consigue a nivel de datos:
+
+- **Apps instaladas**: la columna `user_id` en `installed_apps` garantiza que cada usuario ve solo sus propias apps. Dos usuarios pueden instalar la misma app en la misma Pi de forma completamente independiente.
+- **Notas**: la columna `user_id` en `notes` asegura que cada usuario ve solo sus propias notas.
+- **Hardware y sensores**: los recursos físicos (GPIO, I2C, sensores registrados, `device_settings`) son globales y compartidos por todos los usuarios.
+- **SQLite por app**: la base de datos de cada app instalada (`app_data/app_{installed_id}.db`) está ligada a la instancia instalada concreta, no a la app global — si dos usuarios instalan la misma app, cada uno tiene su propio SQLite aislado.
 
 **Evolución natural hacia multi-dispositivo:**
 
 1. **Registro de dispositivo** — Al arrancar, la Pi se registra en Railway con un `device_token` único vinculado al usuario propietario
 2. **Autenticación de dispositivo** — La Pi se identifica en cada petición de device API mediante ese token, no el usuario desde el browser
 3. **Routing dinámico** — El frontend obtiene la URL del device del usuario autenticado (`user.device_url`) en lugar de usar `VITE_DEVICE_API_URL` fijo
-4. **BD device por usuario** — Cada Pi mantiene su `device.db` independiente, o se centraliza en Railway con `device_id` como clave de partición
 
 ```
 Futuro:

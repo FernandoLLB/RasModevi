@@ -352,11 +352,13 @@ Rechaza una app con motivo.
 
 ## /api/device — Gestión del dispositivo
 
+> **Autenticación requerida en todos los endpoints.** Los resultados se filtran automáticamente por el usuario autenticado: cada usuario ve solo sus propias apps instaladas. El mismo `store_app_id` puede estar instalado por múltiples usuarios de forma independiente.
+
 ### GET /api/device/apps
 
-Lista todas las apps instaladas en este dispositivo, con datos de la app de la tienda.
+Lista las apps instaladas por el usuario autenticado, con datos de la app de la tienda.
 
-**Auth:** No requerida
+**Auth:** Requerida
 
 **Response 200:**
 ```json
@@ -364,6 +366,7 @@ Lista todas las apps instaladas en este dispositivo, con datos de la app de la t
   {
     "id": 1,
     "store_app_id": 2,
+    "user_id": 3,
     "install_date": "2026-03-10T10:00:00",
     "is_active": false,
     "last_launched": null,
@@ -378,15 +381,19 @@ Lista todas las apps instaladas en este dispositivo, con datos de la app de la t
 
 ### GET /api/device/apps/active
 
-Devuelve la app activa actualmente, o `null` si ninguna está activa.
+Devuelve la app activa actualmente para el usuario autenticado, o `null` si ninguna está activa.
+
+**Auth:** Requerida
 
 ---
 
 ### POST /api/device/apps/:store_app_id/install
 
-Instala una app desde la tienda. Extrae el ZIP en `backend/installed/<id>/`. Incrementa `downloads_count`.
+Instala una app desde la tienda para el usuario autenticado. Extrae el ZIP en `backend/installed/<id>/`. Incrementa `downloads_count`.
 
-**Errores:** `404 APP_NOT_FOUND`, `409 ALREADY_INSTALLED`
+**Auth:** Requerida
+
+**Errores:** `404 APP_NOT_FOUND`, `409 ALREADY_INSTALLED` (el mismo usuario ya la tiene instalada)
 
 **Response 201:** InstalledApp creada.
 
@@ -394,10 +401,12 @@ Instala una app desde la tienda. Extrae el ZIP en `backend/installed/<id>/`. Inc
 
 ### POST /api/device/apps/:installed_id/uninstall
 
-Desinstala una app. Elimina:
+Desinstala una app del usuario autenticado. Elimina:
 - Los archivos extraídos del ZIP (`backend/installed/{id}/`)
 - La base de datos SQLite de la app (`backend/app_data/app_{id}.db`) si existe
 - Todas las entradas del KV store asociadas a esta app
+
+**Auth:** Requerida
 
 **Response 204**
 
@@ -405,7 +414,9 @@ Desinstala una app. Elimina:
 
 ### POST /api/device/apps/:installed_id/activate
 
-Activa una app (desactiva las demás). Registra en el log de actividad.
+Activa una app (desactiva las demás del mismo usuario). Registra en el log de actividad.
+
+**Auth:** Requerida
 
 **Response 200:** InstalledApp actualizada con `is_active: true`.
 
@@ -415,6 +426,8 @@ Activa una app (desactiva las demás). Registra en el log de actividad.
 
 Desactiva la app.
 
+**Auth:** Requerida
+
 **Response 204**
 
 ---
@@ -422,6 +435,8 @@ Desactiva la app.
 ### POST /api/device/apps/:installed_id/launch
 
 Registra que la app fue lanzada. Incrementa `launch_count` y actualiza `last_launched`.
+
+**Auth:** Requerida
 
 **Response 204**
 
@@ -807,21 +822,31 @@ Sirve el archivo JS con cabeceras de caché de 1 año (`Cache-Control: public, m
 
 ## /api/notes — Notas
 
+> **Autenticación requerida en todos los endpoints.** Cada usuario ve y gestiona solo sus propias notas.
+
 ### GET /api/notes
 
-Lista todas las notas (primero las fijadas, luego por fecha de actualización desc).
+Lista las notas del usuario autenticado (primero las fijadas, luego por fecha de actualización desc).
+
+**Auth:** Requerida
 
 ### POST /api/notes
 
-Crea una nota. **Body:** `{ "title": "Texto", "content": "...", "color": "default", "pinned": false }`
+Crea una nota para el usuario autenticado. **Body:** `{ "title": "Texto", "content": "...", "color": "default", "pinned": false }`
+
+**Auth:** Requerida
 
 ### PUT /api/notes/:id
 
-Actualiza parcialmente una nota.
+Actualiza parcialmente una nota propia.
+
+**Auth:** Requerida
 
 ### DELETE /api/notes/:id
 
-Elimina una nota.
+Elimina una nota propia.
+
+**Auth:** Requerida
 
 ---
 

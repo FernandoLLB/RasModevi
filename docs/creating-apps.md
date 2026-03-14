@@ -124,7 +124,7 @@ console.log(info)
 
 #### `ModevI.db` — Base de datos SQL por app
 
-Cada app tiene su propio SQLite completamente aislado. Úsalo para datos estructurados, históricos y consultas complejas. La BD se crea automáticamente en el primer uso y se borra al desinstalar la app.
+Cada instancia instalada de una app tiene su propio SQLite completamente aislado (`backend/app_data/app_{installed_id}.db`). Si dos usuarios instalan la misma app, cada uno tiene su propia base de datos separada. La BD se crea automáticamente en el primer uso y se borra al desinstalar la app.
 
 ```javascript
 // Crear tablas al iniciar la app (CREATE TABLE IF NOT EXISTS es idempotente)
@@ -410,6 +410,6 @@ Esto significa:
 - ✅ Formularios
 - ✅ Ventanas emergentes (popups)
 - ❌ Acceso directo al DOM del host
-- ❌ `localStorage`/`sessionStorage` del dominio principal (usar `ModevI.data` o `ModevI.db` en su lugar)
+- ❌ `localStorage`/`sessionStorage` del dominio principal (usar `ModevI.data` o `ModevI.db` en su lugar — ambas APIs están aisladas por instancia de usuario)
 - ❌ Service Workers
 - ❌ `allow-top-navigation` (no puede redirigir la página principal)

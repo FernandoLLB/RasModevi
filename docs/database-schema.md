@@ -1,9 +1,9 @@
 # ModevI — Database Schema Design
 
-**Version**: 2.0
-**Date**: 2026-03-10
-**Stack**: FastAPI + SQLAlchemy 2.0 + SQLite
-**File**: `backend/modevi.db`
+**Version**: 2.1
+**Date**: 2026-03-14
+**Stack**: FastAPI + SQLAlchemy 2.0 + MySQL (platform) + SQLite (device)
+**Files**: MySQL on Railway / Windows laptop (`modevi` database) + `backend/device.db` on Pi
 
 ---
 
@@ -25,14 +25,16 @@
 
 ## 1. Overview and Design Decisions
 
-### Two logical domains in one SQLite file
+### Two databases, two domains
 
-The platform has two distinct concerns that share a single database file:
+The platform has two distinct concerns in two separate databases:
 
-- **Platform domain**: community store data (users, published apps, ratings, categories). This data could theoretically live on a remote server, but for TFG scope it resides locally alongside the device data.
-- **Device domain**: what is installed and running on this specific Raspberry Pi right now (installed apps, per-app key-value storage, activity log, notes, device settings, sensors).
+- **Platform domain** (MySQL — Railway): community store data (users, published apps, ratings, categories). Managed by `main_store.py` on Railway, always available at `modevi.es`.
+- **Device domain** (SQLite — local Pi): what is installed and running on this specific Raspberry Pi right now (installed apps, per-app key-value storage, activity log, notes, device settings, sensors). Managed by `main.py` on the Pi, available at `pi.modevi.es`.
 
-Keeping both in one SQLite file simplifies the deployment (no separate server required for the TFG demo) while maintaining clean separation through table naming: `store_*` prefix for platform tables, no prefix for device-local tables.
+`installed_apps.user_id` and `installed_apps.store_app_id` reference MySQL tables but live in SQLite — there are no cross-database foreign keys. The router enriches each `InstalledApp` with `StoreApp` data fetched from MySQL on every request.
+
+For historical reference, the original TFG prototype used a single SQLite file for both domains. The split to MySQL + SQLite happened when the project was deployed to Railway (ephemeral filesystem) with Cloudflare R2 for package storage.
 
 ### SQLite type notes
 
@@ -56,13 +58,15 @@ users ──< app_ratings          (one user rates many apps)
 store_apps ──< app_ratings     (one store app has many ratings)
 categories ──< store_apps      (one category contains many store apps)
 store_apps >──< hardware_tags  (many-to-many via store_app_hardware)
-store_apps ──< installed_apps  (one store app installed zero or one time locally)
+[user_id + store_app_id] ──< installed_apps  (one install per user per app; cross-DB integer refs)
 installed_apps ──< app_data    (one installed app stores many key-value pairs)
 installed_apps ──< activity_log
-registered_sensors  (standalone, linked optionally by app_data)
-notes               (standalone)
-device_settings     (standalone)
+registered_sensors  (standalone, global — shared by all users)
+notes               (user_id scoped — each user sees only their own notes)
+device_settings     (standalone, global — shared by all users)
 ```
+
+> **Split-database note**: `installed_apps.user_id` and `installed_apps.store_app_id` reference MySQL tables but live in SQLite. There are no cross-database foreign keys; referential integrity is enforced at the application layer.
 
 ---
 
@@ -341,40 +345,45 @@ class AppRating(Base):
 
 ### 5.1 `installed_apps`
 
-Tracks what is currently installed on this Raspberry Pi. One row per installed store app. When an app is uninstalled the row is deleted (or soft-deleted if history is needed — see migration notes).
+Tracks what is currently installed on this Raspberry Pi, scoped per user. One row per (user, store app) pair. When an app is uninstalled the row is deleted.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | id | Integer | PK, autoincrement | |
-| store_app_id | Integer | FK store_apps.id, NOT NULL, UNIQUE | one install per app |
+| user_id | Integer | NOT NULL | references MySQL `users.id` (no cross-DB FK — plain integer) |
+| store_app_id | Integer | NOT NULL | plain integer reference to MySQL `store_apps.id` (no FK) |
 | install_date | DateTime | NOT NULL, server_default now() | |
 | is_active | Boolean | NOT NULL, DEFAULT FALSE | currently in foreground |
 | last_launched | DateTime | nullable | updated on each launch |
 | launch_count | Integer | NOT NULL, DEFAULT 0 | incremented on each launch |
-| installed_version | String(50) | NOT NULL | version string at install time |
-| local_path | String(500) | nullable | path to unpacked app on device filesystem |
+| install_path | String(500) | nullable | path to unpacked app on device filesystem |
 
-**Index**: `ix_installed_apps_store_app_id`, `ix_installed_apps_is_active`
+**Unique constraint**: `(user_id, store_app_id)` — one install per user per app. Multiple users can install the same app independently.
+
+**Index**: `ix_installed_apps_store_app_id`, `ix_installed_apps_is_active`, `ix_installed_apps_user_id`
+
+> **Note**: The split-database architecture (MySQL for platform, SQLite for device) means `store_app_id` and `user_id` are plain integers without cross-database foreign keys. The router enriches each `InstalledApp` with the corresponding `StoreApp` data from MySQL on every request.
 
 ```python
 class InstalledApp(Base):
     __tablename__ = "installed_apps"
+    __table_args__ = (
+        UniqueConstraint("user_id", "store_app_id", name="uq_installed_apps_user_app"),
+    )
 
-    id                = Column(Integer, primary_key=True, autoincrement=True)
-    store_app_id      = Column(Integer, ForeignKey("store_apps.id", ondelete="RESTRICT"),
-                               nullable=False, unique=True, index=True)
-    install_date      = Column(DateTime, nullable=False, server_default=func.now())
-    is_active         = Column(Boolean, nullable=False, default=False, index=True)
-    last_launched     = Column(DateTime, nullable=True)
-    launch_count      = Column(Integer, nullable=False, default=0)
-    installed_version = Column(String(50), nullable=False)
-    local_path        = Column(String(500), nullable=True)
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    user_id      = Column(Integer, nullable=False, index=True)
+    store_app_id = Column(Integer, nullable=False, index=True)
+    install_date = Column(DateTime, nullable=False, server_default=func.now())
+    is_active    = Column(Boolean, nullable=False, default=False, index=True)
+    last_launched = Column(DateTime, nullable=True)
+    launch_count  = Column(Integer, nullable=False, default=0)
+    install_path  = Column(String(500), nullable=True)
 
-    store_app   = relationship("StoreApp", back_populates="installed")
-    app_data    = relationship("AppData", back_populates="installed_app",
-                               cascade="all, delete-orphan")
-    activity    = relationship("ActivityLog", back_populates="installed_app",
-                               cascade="all, delete-orphan")
+    app_data  = relationship("AppData", back_populates="installed_app",
+                             cascade="all, delete-orphan")
+    activity  = relationship("ActivityLog", back_populates="installed_app",
+                             cascade="all, delete-orphan")
 ```
 
 ---
@@ -447,11 +456,12 @@ class ActivityLog(Base):
 
 ### 5.4 `notes`
 
-Unchanged from existing model. Kept as standalone device-local table.
+Device-local notes, scoped per user via `user_id`.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | id | Integer | PK, autoincrement | |
+| user_id | Integer | NOT NULL | references MySQL `users.id` (plain integer, no cross-DB FK) |
 | title | String | NOT NULL | |
 | content | Text | DEFAULT '' | |
 | color | String | DEFAULT '#fef08a' | hex color for UI card |
@@ -464,6 +474,7 @@ class Note(Base):
     __tablename__ = "notes"
 
     id         = Column(Integer, primary_key=True, autoincrement=True)
+    user_id    = Column(Integer, nullable=False, index=True)
     title      = Column(String, nullable=False)
     content    = Column(Text, default="")
     color      = Column(String, default="#fef08a")
@@ -579,43 +590,45 @@ The following indexes are defined for the most common query patterns:
 ## 8. Relationships Map
 
 ```
-User (1) ──────────────────── (N) StoreApp
+User (MySQL) (1) ──────────────────── (N) StoreApp (MySQL)
   via: StoreApp.developer_id → users.id
 
-User (1) ──────────────────── (N) AppRating
+User (MySQL) (1) ──────────────────── (N) AppRating (MySQL)
   via: AppRating.user_id → users.id
 
-StoreApp (1) ───────────────── (N) AppRating          [CASCADE DELETE]
+StoreApp (MySQL) (1) ───────────────── (N) AppRating (MySQL)   [CASCADE DELETE]
   via: AppRating.store_app_id → store_apps.id
 
-Category (1) ──────────────── (N) StoreApp
+Category (MySQL) (1) ──────────────── (N) StoreApp (MySQL)
   via: StoreApp.category_id → categories.id
 
-StoreApp (N) ──────────────── (N) HardwareTag
+StoreApp (MySQL) (N) ──────────────── (N) HardwareTag (MySQL)
   via: store_app_hardware association table
 
-StoreApp (1) ───────────────── (0..1) InstalledApp     [UNIQUE FK]
-  via: InstalledApp.store_app_id → store_apps.id
+User×StoreApp (1) ──────────────────── (0..1) InstalledApp (SQLite)  [UNIQUE (user_id, store_app_id)]
+  user_id and store_app_id are plain integers (no cross-DB FK)
+  multiple users can install the same app independently
 
-InstalledApp (1) ─────────── (N) AppData              [CASCADE DELETE]
+InstalledApp (SQLite) (1) ─────────── (N) AppData (SQLite)    [CASCADE DELETE]
   via: AppData.installed_app_id → installed_apps.id
 
-InstalledApp (1) ─────────── (N) ActivityLog          [SET NULL on delete]
+InstalledApp (SQLite) (1) ─────────── (N) ActivityLog (SQLite) [SET NULL on delete]
   via: ActivityLog.installed_app_id → installed_apps.id
 
-RegisteredSensor (N) ──────── (0..1) HardwareTag      [SET NULL on delete]
+RegisteredSensor (SQLite) (N) ──────── (0..1) HardwareTag (MySQL)  [SET NULL on delete]
   via: RegisteredSensor.hardware_tag_id → hardware_tags.id
+  (no cross-DB FK; tag lookup done at application layer)
 ```
 
 ### Cascade behavior
 
 | Relationship | On parent delete |
 |---|---|
-| User → StoreApp | RESTRICT (cannot delete a developer who has published apps) |
-| StoreApp → AppRating | CASCADE (deleting an app removes all its ratings) |
-| StoreApp → InstalledApp | RESTRICT (cannot delete store record of installed app) |
-| InstalledApp → AppData | CASCADE (uninstalling deletes all app data) |
-| InstalledApp → ActivityLog | SET NULL (history preserved even if app removed) |
+| User → StoreApp (MySQL) | RESTRICT (cannot delete a developer who has published apps) |
+| StoreApp → AppRating (MySQL) | CASCADE (deleting an app removes all its ratings) |
+| InstalledApp → AppData (SQLite) | CASCADE (uninstalling deletes all KV store data) |
+| InstalledApp → AppData DB (SQLite) | `app_data/app_{id}.db` file deleted by the router on uninstall |
+| InstalledApp → ActivityLog (SQLite) | SET NULL (history preserved even if app removed) |
 | HardwareTag → RegisteredSensor | SET NULL (sensor preserved if tag removed) |
 
 ---
@@ -648,9 +661,21 @@ Old `ActivityLog.app_id` was a String with no FK. New `ActivityLog.installed_app
 
 **Migration**: set `installed_app_id` by joining old `app_id` string through the new `installed_apps → store_apps.slug` chain. Rows that cannot be matched get `NULL`.
 
-#### `notes` table — **no changes**
+#### `notes` table — **`user_id` column added**
 
-The `Note` model is identical to the existing implementation. No migration needed.
+`user_id INTEGER` was added to scope notes per user. The startup migration (`_migrate_device_db()` in `main.py`) handles this automatically:
+- If `user_id` column is absent, it is added with `ALTER TABLE notes ADD COLUMN user_id INTEGER`.
+- Existing notes with `user_id IS NULL` are assigned to the admin user (id=1).
+
+#### `installed_apps` table — **`user_id` + UniqueConstraint change**
+
+The original unique constraint was `UNIQUE(store_app_id)` (one global install per app). This was replaced by `UNIQUE(user_id, store_app_id)` to support per-user installs.
+
+The startup migration handles this:
+1. Adds `user_id INTEGER` column if absent.
+2. Detects the old `UNIQUE(store_app_id)` constraint by inspecting the SQLite schema.
+3. If the old constraint is found, recreates the table with the new constraint (SQLite does not support `DROP CONSTRAINT`).
+4. Assigns existing rows with `user_id IS NULL` to the admin user.
 
 #### New tables (no migration needed, created fresh)
 
@@ -663,15 +688,14 @@ The `Note` model is identical to the existing implementation. No migration neede
 - `device_settings`
 - `registered_sensors`
 
-### Alembic migration script structure
+### Runtime migration (`_migrate_device_db`)
 
-```
-migrations/
-  versions/
-    001_initial_schema.py       ← creates all new tables
-    002_migrate_apps_data.py    ← data migration from old apps/app_settings/activity_log
-    003_drop_legacy_tables.py   ← drops apps, app_settings after data verified
-```
+The project does not use Alembic. Schema changes to the SQLite device database are applied at startup by `_migrate_device_db()` in `backend/main.py`. This function:
+
+1. Adds `user_id` to `installed_apps` if absent.
+2. Recreates `installed_apps` with `UNIQUE(user_id, store_app_id)` if the old `UNIQUE(store_app_id)` constraint is detected.
+3. Adds `user_id` to `notes` if absent.
+4. Assigns `user_id = 1` (admin) to all rows where `user_id IS NULL`.
 
 ---
 
@@ -944,20 +968,21 @@ class AppRating(Base):
 # ---------------------------------------------------------------------------
 class InstalledApp(Base):
     __tablename__ = "installed_apps"
-
-    id                = Column(Integer, primary_key=True, autoincrement=True)
-    store_app_id      = Column(
-        Integer, ForeignKey("store_apps.id", ondelete="RESTRICT"),
-        nullable=False, unique=True, index=True,
+    __table_args__ = (
+        UniqueConstraint("user_id", "store_app_id", name="uq_installed_apps_user_app"),
     )
-    install_date      = Column(DateTime, nullable=False, server_default=func.now())
-    is_active         = Column(Boolean, nullable=False, default=False, index=True)
-    last_launched     = Column(DateTime, nullable=True)
-    launch_count      = Column(Integer, nullable=False, default=0)
-    installed_version = Column(String(50), nullable=False)
-    local_path        = Column(String(500), nullable=True)
 
-    store_app = relationship("StoreApp", back_populates="installed")
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    user_id      = Column(Integer, nullable=False, index=True)
+    # user_id references MySQL users.id — no cross-DB FK, enforced at application layer
+    store_app_id = Column(Integer, nullable=False, index=True)
+    # store_app_id references MySQL store_apps.id — no cross-DB FK
+    install_date  = Column(DateTime, nullable=False, server_default=func.now())
+    is_active     = Column(Boolean, nullable=False, default=False, index=True)
+    last_launched = Column(DateTime, nullable=True)
+    launch_count  = Column(Integer, nullable=False, default=0)
+    install_path  = Column(String(500), nullable=True)
+
     app_data  = relationship("AppData", back_populates="installed_app",
                              cascade="all, delete-orphan")
     activity  = relationship("ActivityLog", back_populates="installed_app",
@@ -1002,6 +1027,8 @@ class Note(Base):
     __tablename__ = "notes"
 
     id         = Column(Integer, primary_key=True, autoincrement=True)
+    user_id    = Column(Integer, nullable=False, index=True)
+    # user_id references MySQL users.id — no cross-DB FK, enforced at application layer
     title      = Column(String, nullable=False)
     content    = Column(Text, default="")
     color      = Column(String, default="#fef08a")

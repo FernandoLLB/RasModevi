@@ -276,15 +276,15 @@ class AppRating(Base):
 
 class InstalledApp(Base):
     __tablename__ = "installed_apps"
+    __table_args__ = (UniqueConstraint("user_id", "store_app_id"),)
     id             = Column(Integer, primary_key=True, autoincrement=True)
-    store_app_id   = Column(Integer, ForeignKey("store_apps.id"),
-                            nullable=False, unique=True)
+    user_id        = Column(Integer, nullable=False)  # references MySQL users.id (no cross-DB FK)
+    store_app_id   = Column(Integer, nullable=False)
     install_date   = Column(DateTime, server_default=func.now())
     is_active      = Column(Boolean, default=False)
     last_launched  = Column(DateTime)
     launch_count   = Column(Integer, default=0)
 
-    store_app      = relationship("StoreApp")
     app_data       = relationship("AppData", back_populates="installed_app",
                                   cascade="all, delete-orphan")
 
@@ -318,6 +318,7 @@ class ActivityLog(Base):
 class Note(Base):
     __tablename__ = "notes"
     id         = Column(Integer, primary_key=True, autoincrement=True)
+    user_id    = Column(Integer, nullable=False)  # references MySQL users.id (no cross-DB FK)
     title      = Column(String(200), nullable=False)
     content    = Column(Text, default="")
     color      = Column(String(20), default="#fef08a")
@@ -968,16 +969,18 @@ Notes:    Upserts (one rating per user per app). Triggers rating aggregate updat
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/api/device/installed` | none | List all installed apps |
-| POST | `/api/device/install/{store_app_id}` | none | Install app from store |
-| DELETE | `/api/device/installed/{installed_app_id}` | none | Uninstall app |
-| POST | `/api/device/installed/{installed_app_id}/activate` | none | Set as active app |
-| POST | `/api/device/installed/{installed_app_id}/deactivate` | none | Deactivate app |
-| POST | `/api/device/installed/{installed_app_id}/launch` | none | Record launch event |
-| GET | `/api/device/settings` | none | List device settings |
+| GET | `/api/device/apps` | user | List installed apps for the authenticated user |
+| POST | `/api/device/apps/{store_app_id}/install` | user | Install app from store (scoped to user) |
+| POST | `/api/device/apps/{installed_app_id}/uninstall` | user | Uninstall app |
+| POST | `/api/device/apps/{installed_app_id}/activate` | user | Set as active app |
+| POST | `/api/device/apps/{installed_app_id}/deactivate` | user | Deactivate app |
+| POST | `/api/device/apps/{installed_app_id}/launch` | user | Record launch event |
+| GET | `/api/device/settings` | none | List device settings (global) |
 | PUT | `/api/device/settings/{key}` | none | Update a device setting |
 
-Note: Device endpoints have no auth requirement because the device UI is local-only and runs in kiosk mode. If exposed over the network, add a local-only middleware check.
+**Per-user isolation**: All install/uninstall/activate/deactivate/launch endpoints require a valid JWT. Results are filtered by `user_id` so each user sees only their own installed apps. The unique constraint on `installed_apps` is `(user_id, store_app_id)` — multiple users can independently install the same app.
+
+Device settings remain global (shared across all users).
 
 **GET /api/device/installed**
 ```
@@ -1087,15 +1090,17 @@ Response: { key: str, updated_at: datetime }
 
 ---
 
-#### `/api/notes` — `backend/routers/notes.py` (existing, unchanged interface)
+#### `/api/notes` — `backend/routers/notes.py`
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/api/notes` | none | List all notes |
-| POST | `/api/notes` | none | Create note |
-| GET | `/api/notes/{note_id}` | none | Get single note |
-| PUT | `/api/notes/{note_id}` | none | Update note |
-| DELETE | `/api/notes/{note_id}` | none | Delete note |
+| GET | `/api/notes` | user | List notes for the authenticated user |
+| POST | `/api/notes` | user | Create note (scoped to authenticated user) |
+| GET | `/api/notes/{note_id}` | user | Get single note (must belong to user) |
+| PUT | `/api/notes/{note_id}` | user | Update note (must belong to user) |
+| DELETE | `/api/notes/{note_id}` | user | Delete note (must belong to user) |
+
+**Per-user isolation**: All notes endpoints require a valid JWT. Notes are filtered by `user_id` — each user sees and manages only their own notes.
 
 ---
 
@@ -1233,6 +1238,7 @@ from routers import auth, store, store_dev, ratings, device, hardware, sdk, note
 @asynccontextmanager
 async def lifespan(app):
     create_all_tables()
+    _migrate_device_db()   # adds user_id columns if not present, fixes old UNIQUE constraints
     seed()
     yield
 
