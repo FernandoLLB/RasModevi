@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { deviceApi } from '../api/device'
+import { useAuth } from './AuthContext'
 
 const DeviceContext = createContext(null)
 
 export function DeviceProvider({ children }) {
+  const { isAuthenticated } = useAuth()
   const [installedApps, setInstalledApps] = useState([])
   const [activeApp, setActiveApp] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -26,10 +28,16 @@ export function DeviceProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setInstalledApps([])
+      setActiveApp(null)
+      setLoading(false)
+      return
+    }
     refresh()
     const interval = setInterval(refresh, 5000)
     return () => clearInterval(interval)
-  }, [refresh])
+  }, [refresh, isAuthenticated])
 
   const install = async (storeAppId) => {
     setInstallingIds(s => new Set(s).add(storeAppId))

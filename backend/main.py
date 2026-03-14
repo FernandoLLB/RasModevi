@@ -64,6 +64,22 @@ def _migrate_device_db() -> None:
         except Exception:
             pass
 
+        # Assign existing apps with NULL user_id to the first admin user
+        try:
+            from database import platform_engine as _pe
+            with _pe.connect() as pconn:
+                admin_row = pconn.execute(
+                    text("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1")
+                ).fetchone()
+                if admin_row:
+                    conn.execute(
+                        text("UPDATE installed_apps SET user_id = :uid WHERE user_id IS NULL"),
+                        {"uid": admin_row[0]},
+                    )
+                    conn.commit()
+        except Exception:
+            pass
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
