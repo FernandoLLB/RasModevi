@@ -1706,6 +1706,11 @@ async def publish_improved_app(
         db.commit()
     db.refresh(store_app)
 
+    # Save ZIP locally so other users on the same Pi can install it
+    local_pkg_dir = BACKEND_DIR / "store" / "packages" / str(store_app.id)
+    local_pkg_dir.mkdir(parents=True, exist_ok=True)
+    (local_pkg_dir / "app.zip").write_bytes(zip_bytes)
+
     # Upload to R2 in a thread pool to avoid blocking the event loop
     try:
         package_url = await asyncio.to_thread(
@@ -1717,7 +1722,7 @@ async def publish_improved_app(
         store_app.package_url = package_url
         db.commit()
     except Exception:
-        # R2 unreachable — app is in the store but without a downloadable package
+        # R2 unreachable — app is in the store but package only available locally on Pi
         pass
 
     return {
