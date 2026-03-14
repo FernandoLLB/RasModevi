@@ -1302,6 +1302,7 @@ async def _stream(
     try:
         installed = InstalledApp(
             store_app_id=store_app_id,
+            user_id=user.id,
             local_name=name,
             local_description=app_description,
             local_icon_url=app_icon_url,
@@ -1487,8 +1488,10 @@ async def _stream_debug(
     def evt(data: dict) -> str:
         return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
-    # Load installed app
-    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
+    # Load installed app (only if owned by the current user)
+    installed = device_db.query(InstalledApp).filter(
+        InstalledApp.id == installed_id, InstalledApp.user_id == user.id
+    ).first()
     if not installed:
         yield evt({"type": "error", "message": f"App instalada #{installed_id} no encontrada."})
         return
@@ -1618,7 +1621,9 @@ async def publish_improved_app(
     Reads the current index.html, packages it, uploads to R2, and registers in MySQL.
     """
 
-    installed = device_db.query(InstalledApp).filter(InstalledApp.id == body.installed_id).first()
+    installed = device_db.query(InstalledApp).filter(
+        InstalledApp.id == body.installed_id, InstalledApp.user_id == user.id
+    ).first()
     if not installed:
         raise HTTPException(status_code=404, detail=f"App instalada #{body.installed_id} no encontrada.")
 
