@@ -1095,6 +1095,7 @@ async def _stream(
     name: str,
     user: User,
     device_db: Session,
+    platform_db: Session,
     model: str = "claude-sonnet-4-6",
 ) -> AsyncGenerator[str, None]:
     """Yield SSE-formatted data events for the entire app-creation pipeline."""
@@ -1228,51 +1229,131 @@ async def _stream(
     zip_bytes = zip_buf.getvalue()
 
     # ------------------------------------------------------------------ #
-    # Install locally on device (no store registration)                   #
+    # Register in the store (MySQL + R2) so the app survives deploys     #
     # ------------------------------------------------------------------ #
-    installed = InstalledApp(
-        store_app_id=None,
-        local_name=name,
-        local_description=app_description,
-        local_icon_url=app_icon_url,
-        is_active=False,
-    )
-    device_db.add(installed)
-    device_db.flush()
+    yield evt({"type": "status", "step": "registering", "message": "Registrando en la tienda..."})
 
-    install_path = INSTALLED_DIR / str(installed.id)
-    install_path.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        zf.extractall(install_path)
-    installed.install_path = str(install_path)
+    slug_base = re.sub(r"[^a-z0-9]+", "-", name.lower().strip()).strip("-")
+    slug = slug_base
+    counter = 1
+    while platform_db.query(StoreApp).filter(StoreApp.slug == slug).first():
+        slug = f"{slug_base}-{counter}"
+        counter += 1
 
-    # Fix SDK script src: replace placeholder id=0 with the real installed id
-    index_html = install_path / "index.html"
-    if index_html.exists():
-        html_content = index_html.read_text(encoding="utf-8")
-        sdk_tag = f'<script src="/api/sdk/app/{installed.id}/sdk.js"></script>'
-        # Replace placeholder tag (id=0) if present, otherwise inject before </head>
-        if '/api/sdk/app/0/sdk.js' in html_content:
-            html_content = html_content.replace(
-                '<script src="/api/sdk/app/0/sdk.js"></script>', sdk_tag, 1
+    package_url = None
+    try:
+        if r2.is_configured():
+            # We need the store_app ID for the R2 key — create the record first
+            store_app = StoreApp(
+                developer_id=user.id,
+                name=name,
+                slug=slug,
+                description=app_description,
+                version="1.0.0",
+                icon_path=app_icon_url,
+                permissions=[],
+                required_hardware=[],
+                status="published",
+                ai_prompt=description,
             )
-        elif sdk_tag not in html_content:
-            inject_before = "</head>" if "</head>" in html_content else "</body>"
-            html_content = html_content.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
-        index_html.write_text(html_content, encoding="utf-8")
+            platform_db.add(store_app)
+            platform_db.flush()
 
-    device_db.add(ActivityLog(
-        installed_app_id=installed.id,
-        action="install",
-        details=f"App '{name}' generada con IA e instalada automáticamente",
-    ))
-    device_db.commit()
+            package_url = r2.upload(
+                key=f"packages/{store_app.id}/app.zip",
+                data=zip_bytes,
+                content_type="application/zip",
+            )
+            store_app.package_url = package_url
+            platform_db.commit()
+            platform_db.refresh(store_app)
+    except Exception as e:
+        platform_db.rollback()
+        # Store registration failed — create without store entry
+        store_app = None
+        yield evt({"type": "warning", "message": f"No se pudo registrar en la tienda: {e}"})
 
-    yield evt({
-        "type": "done",
-        "installed_id": installed.id,
-        "message": f"¡Aplicación «{name}» creada e instalada!",
-    })
+    if not package_url:
+        # R2 not configured or upload failed — register in MySQL only (local ZIP fallback)
+        try:
+            store_app = StoreApp(
+                developer_id=user.id,
+                name=name,
+                slug=slug,
+                description=app_description,
+                version="1.0.0",
+                icon_path=app_icon_url,
+                permissions=[],
+                required_hardware=[],
+                status="published",
+                ai_prompt=description,
+            )
+            platform_db.add(store_app)
+            platform_db.commit()
+            platform_db.refresh(store_app)
+        except Exception:
+            platform_db.rollback()
+            store_app = None
+
+    # ------------------------------------------------------------------ #
+    # Install locally on device                                            #
+    # ------------------------------------------------------------------ #
+    store_app_id = store_app.id if store_app else None
+    try:
+        installed = InstalledApp(
+            store_app_id=store_app_id,
+            local_name=name,
+            local_description=app_description,
+            local_icon_url=app_icon_url,
+            is_active=False,
+        )
+        device_db.add(installed)
+        device_db.flush()
+
+        install_path = INSTALLED_DIR / str(installed.id)
+        install_path.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            zf.extractall(install_path)
+        installed.install_path = str(install_path)
+
+        # Fix SDK script src: replace placeholder id=0 with the real installed id
+        index_html = install_path / "index.html"
+        if index_html.exists():
+            html_content = index_html.read_text(encoding="utf-8")
+            sdk_tag = f'<script src="/api/sdk/app/{installed.id}/sdk.js"></script>'
+            if '/api/sdk/app/0/sdk.js' in html_content:
+                html_content = html_content.replace(
+                    '<script src="/api/sdk/app/0/sdk.js"></script>', sdk_tag, 1
+                )
+            elif sdk_tag not in html_content:
+                inject_before = "</head>" if "</head>" in html_content else "</body>"
+                html_content = html_content.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
+            index_html.write_text(html_content, encoding="utf-8")
+
+        device_db.add(ActivityLog(
+            installed_app_id=installed.id,
+            action="install",
+            details=f"App '{name}' generada con IA e instalada automáticamente",
+        ))
+        device_db.commit()
+
+        yield evt({
+            "type": "done",
+            "store_app_id": store_app_id,
+            "installed_id": installed.id,
+            "message": f"¡Aplicación «{name}» creada e instalada!",
+        })
+    except Exception as e:
+        device_db.rollback()
+        # Local install failed (e.g. Railway ephemeral FS) — app is still in the store
+        yield evt({
+            "type": "done",
+            "store_app_id": store_app_id,
+            "installed_id": None,
+            "message": f"¡Aplicación «{name}» creada y publicada en la tienda!" + (
+                " (Instálala desde la tienda en tu dispositivo.)" if store_app_id else ""
+            ),
+        })
 
 
 @router.get("/create-app")
@@ -1306,7 +1387,7 @@ async def create_app_with_ai(
         raise HTTPException(status_code=400, detail=f"Modelo no permitido. Usa uno de: {', '.join(ALLOWED_MODELS)}")
 
     return StreamingResponse(
-        _stream(description, name, user, device_db, model=model),
+        _stream(description, name, user, device_db, db, model=model),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
