@@ -10,6 +10,8 @@ import zipfile
 from pathlib import Path
 from typing import AsyncGenerator
 
+import asyncio
+
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -1259,7 +1261,8 @@ async def _stream(
             platform_db.add(store_app)
             platform_db.flush()
 
-            package_url = r2.upload(
+            package_url = await asyncio.to_thread(
+                r2.upload,
                 key=f"packages/{store_app.id}/app.zip",
                 data=zip_bytes,
                 content_type="application/zip",
@@ -1703,13 +1706,19 @@ async def publish_improved_app(
         db.commit()
     db.refresh(store_app)
 
-    package_url = r2.upload(
-        key=f"packages/{store_app.id}/app.zip",
-        data=zip_bytes,
-        content_type="application/zip",
-    )
-    store_app.package_url = package_url
-    db.commit()
+    # Upload to R2 in a thread pool to avoid blocking the event loop
+    try:
+        package_url = await asyncio.to_thread(
+            r2.upload,
+            key=f"packages/{store_app.id}/app.zip",
+            data=zip_bytes,
+            content_type="application/zip",
+        )
+        store_app.package_url = package_url
+        db.commit()
+    except Exception:
+        # R2 unreachable — app is in the store but without a downloadable package
+        pass
 
     return {
         "app_id": store_app.id,
