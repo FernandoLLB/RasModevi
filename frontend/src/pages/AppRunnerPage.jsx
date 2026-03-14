@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Maximize2 } from 'lucide-react'
+import { ArrowLeft, Maximize2, ChevronRight, ChevronLeft } from 'lucide-react'
 import { deviceApi } from '../api/device'
 import { DEVICE_BASE } from '../api/client'
 import { useDevice } from '../context/DeviceContext'
@@ -10,26 +10,14 @@ export default function AppRunnerPage() {
   const navigate = useNavigate()
   const iframeRef = useRef()
   const cacheBust = useRef(Date.now()).current
-  const hideTimerRef = useRef(null)
   const { installedApps } = useDevice()
   const [toast, setToast] = useState(null)
-  const [showBack, setShowBack] = useState(true)
+  const [showControls, setShowControls] = useState(false)
 
   const app = installedApps.find(a => a.id === parseInt(app_id))
 
-  const scheduleHide = useCallback(() => {
-    clearTimeout(hideTimerRef.current)
-    hideTimerRef.current = setTimeout(() => setShowBack(false), 4000)
-  }, [])
-
-  const revealBack = useCallback(() => {
-    setShowBack(true)
-    scheduleHide()
-  }, [scheduleHide])
-
   useEffect(() => {
     deviceApi.launch(parseInt(app_id)).catch(console.error)
-    scheduleHide()
 
     const handleMessage = (e) => {
       if (e.data?.type === 'modevi-toast') {
@@ -38,12 +26,8 @@ export default function AppRunnerPage() {
       }
     }
     window.addEventListener('message', handleMessage)
-    return () => { clearTimeout(hideTimerRef.current); window.removeEventListener('message', handleMessage) }
-  }, [app_id, scheduleHide])
-
-  const handleMouseMove = (e) => {
-    if (e.clientX < 80 || e.clientY < 60) revealBack()
-  }
+    return () => window.removeEventListener('message', handleMessage)
+  }, [app_id])
 
   if (!app) {
     return (
@@ -67,7 +51,7 @@ export default function AppRunnerPage() {
     : `${DEVICE_BASE}/installed/${app_id}/?v=${cacheBust}`
 
   return (
-    <div className="fixed inset-0 bg-black z-50" onMouseMove={handleMouseMove}>
+    <div className="fixed inset-0 bg-black z-50">
       <iframe
         ref={iframeRef}
         src={appUrl}
@@ -77,44 +61,62 @@ export default function AppRunnerPage() {
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-downloads"
       />
 
-      {/* Transparent hit zone — larger on mobile for easier reveal */}
-      <div
-        className="fixed top-0 left-0 w-28 h-28 z-[60]"
-        onTouchStart={revealBack}
-        onMouseEnter={revealBack}
-      />
-
-      {/* Edge indicator — subtle pull-tab when buttons are hidden */}
-      <div
-        className={`fixed top-1/2 -translate-y-1/2 left-0 z-[59] transition-all duration-500 ${showBack ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-        onTouchStart={revealBack}
-        onClick={revealBack}
+      {/* Pull-tab — always visible on left edge, vertically centered */}
+      <button
+        onClick={() => setShowControls(v => !v)}
+        className="fixed top-1/2 -translate-y-1/2 left-0 z-[61] flex items-center justify-center cursor-pointer transition-all duration-300"
+        style={{
+          background: 'rgba(0,0,0,0.25)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderLeft: 'none',
+          borderRadius: '0 12px 12px 0',
+          padding: '18px 8px',
+        }}
+        aria-label="Mostrar controles"
       >
-        <div className="bg-black/50 backdrop-blur-md rounded-r-2xl px-1.5 py-5 border-r border-t border-b border-white/10 flex flex-col items-center gap-1.5 cursor-pointer">
-          <div className="w-1 h-6 rounded-full bg-white/50" />
-          <div className="w-1 h-3 rounded-full bg-white/30" />
-        </div>
-      </div>
+        {showControls
+          ? <ChevronLeft size={16} className="text-white/60" />
+          : <ChevronRight size={16} className="text-white/60" />
+        }
+      </button>
 
-      {/* Back + fullscreen buttons overlay */}
+      {/* Controls panel — slides in from left */}
       <div
-        className={`fixed top-3 left-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 transition-all duration-400 z-[60] ${showBack ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
+        className={`fixed top-1/2 -translate-y-1/2 left-0 z-[60] flex flex-col gap-2 transition-all duration-300 ${
+          showControls ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
+        }`}
+        style={{ paddingLeft: '4px', paddingRight: '10px' }}
       >
         <button
           onClick={() => navigate('/launcher')}
-          className="flex items-center gap-2.5 pl-3.5 pr-5 py-3 rounded-2xl glass text-slate-200 hover:text-white transition-all cursor-pointer min-h-[52px] shadow-xl"
+          className="flex items-center gap-2.5 pl-4 pr-5 py-3.5 rounded-2xl text-slate-200 hover:text-white transition-colors cursor-pointer min-h-[52px] shadow-lg"
+          style={{
+            background: 'rgba(0,0,0,0.30)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
         >
-          <ArrowLeft size={22} />
+          <ArrowLeft size={20} />
           <span className="text-sm font-medium">Launcher</span>
         </button>
+
         <a
           href={appUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2.5 pl-3.5 pr-5 py-3 rounded-2xl glass text-slate-200 hover:text-white transition-all cursor-pointer min-h-[52px] shadow-xl"
+          className="flex items-center gap-2.5 pl-4 pr-5 py-3.5 rounded-2xl text-slate-200 hover:text-white transition-colors cursor-pointer min-h-[52px] shadow-lg"
+          style={{
+            background: 'rgba(0,0,0,0.30)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
           title="Abrir en ventana completa"
         >
-          <Maximize2 size={22} />
+          <Maximize2 size={20} />
           <span className="text-sm font-medium">Nueva ventana</span>
         </a>
       </div>
