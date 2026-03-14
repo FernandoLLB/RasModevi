@@ -64,13 +64,18 @@ def _migrate_device_db() -> None:
         except Exception:
             pass
 
-        # Assign existing apps with NULL user_id to the first admin user
+        # Assign existing apps with NULL user_id to the default admin user
         try:
             from database import platform_engine as _pe
             with _pe.connect() as pconn:
+                # Prefer username='admin', fall back to first admin by id
                 admin_row = pconn.execute(
-                    text("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1")
+                    text("SELECT id FROM users WHERE username='admin' AND role='admin' LIMIT 1")
                 ).fetchone()
+                if not admin_row:
+                    admin_row = pconn.execute(
+                        text("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1")
+                    ).fetchone()
                 if admin_row:
                     conn.execute(
                         text("UPDATE installed_apps SET user_id = :uid WHERE user_id IS NULL"),
