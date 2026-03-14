@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 # If set, ZIPs are downloaded from the store API when not available locally
 STORE_API_URL: str = os.getenv("STORE_API_URL", "").rstrip("/")
 
+from auth import get_current_user
 from database import get_device_db, get_platform_db
 from models_device import ActivityLog, AppData, InstalledApp
 from models_platform import StoreApp, User
@@ -145,11 +146,13 @@ def _enrich(
 
 @router.get("/apps", response_model=List[InstalledAppOut])
 async def list_installed_apps(
+    current_user: User = Depends(get_current_user),
     device_db: Session = Depends(get_device_db),
     platform_db: Session = Depends(get_platform_db),
 ):
     installed = (
         device_db.query(InstalledApp)
+        .filter(InstalledApp.user_id == current_user.id)
         .order_by(InstalledApp.install_date.desc())
         .all()
     )
@@ -158,10 +161,15 @@ async def list_installed_apps(
 
 @router.get("/apps/active", response_model=Optional[InstalledAppOut])
 async def get_active_app(
+    current_user: User = Depends(get_current_user),
     device_db: Session = Depends(get_device_db),
     platform_db: Session = Depends(get_platform_db),
 ):
-    inst = device_db.query(InstalledApp).filter(InstalledApp.is_active == True).first()
+    inst = (
+        device_db.query(InstalledApp)
+        .filter(InstalledApp.is_active == True, InstalledApp.user_id == current_user.id)
+        .first()
+    )
     if not inst:
         return None
     return _enrich([inst], platform_db)[0]
@@ -174,6 +182,7 @@ async def get_active_app(
 )
 async def install_app(
     store_app_id: int,
+    current_user: User = Depends(get_current_user),
     device_db: Session = Depends(get_device_db),
     platform_db: Session = Depends(get_platform_db),
 ):
@@ -190,7 +199,8 @@ async def install_app(
         )
 
     existing = device_db.query(InstalledApp).filter(
-        InstalledApp.store_app_id == store_app_id
+        InstalledApp.store_app_id == store_app_id,
+        InstalledApp.user_id == current_user.id,
     ).first()
     if existing:
         raise HTTPException(
@@ -215,6 +225,7 @@ async def install_app(
     try:
         installed = InstalledApp(
             store_app_id=store_app_id,
+            user_id=current_user.id,
             is_active=False,
             local_name=store_app.name,
             local_icon_url=store_app.icon_path,
@@ -277,9 +288,12 @@ async def install_app(
 @router.post("/apps/{installed_id}/uninstall", status_code=status.HTTP_204_NO_CONTENT)
 async def uninstall_app(
     installed_id: int,
+    current_user: User = Depends(get_current_user),
     device_db: Session = Depends(get_device_db),
 ):
-    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
+    installed = device_db.query(InstalledApp).filter(
+        InstalledApp.id == installed_id, InstalledApp.user_id == current_user.id
+    ).first()
     if not installed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -312,19 +326,23 @@ async def uninstall_app(
 @router.post("/apps/{installed_id}/activate", response_model=InstalledAppOut)
 async def activate_app(
     installed_id: int,
+    current_user: User = Depends(get_current_user),
     device_db: Session = Depends(get_device_db),
     platform_db: Session = Depends(get_platform_db),
 ):
-    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
+    installed = device_db.query(InstalledApp).filter(
+        InstalledApp.id == installed_id, InstalledApp.user_id == current_user.id
+    ).first()
     if not installed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"detail": "Installed app not found", "code": "NOT_FOUND"},
         )
 
-    device_db.query(InstalledApp).filter(InstalledApp.id != installed_id).update(
-        {"is_active": False}
-    )
+    # Only deactivate this user's apps
+    device_db.query(InstalledApp).filter(
+        InstalledApp.id != installed_id, InstalledApp.user_id == current_user.id
+    ).update({"is_active": False})
     installed.is_active = True
 
     device_db.add(ActivityLog(
@@ -340,9 +358,12 @@ async def activate_app(
 @router.post("/apps/{installed_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_app(
     installed_id: int,
+    current_user: User = Depends(get_current_user),
     device_db: Session = Depends(get_device_db),
 ):
-    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
+    installed = device_db.query(InstalledApp).filter(
+        InstalledApp.id == installed_id, InstalledApp.user_id == current_user.id
+    ).first()
     if not installed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -360,9 +381,12 @@ async def deactivate_app(
 @router.post("/apps/{installed_id}/launch", status_code=status.HTTP_204_NO_CONTENT)
 async def launch_app(
     installed_id: int,
+    current_user: User = Depends(get_current_user),
     device_db: Session = Depends(get_device_db),
 ):
-    installed = device_db.query(InstalledApp).filter(InstalledApp.id == installed_id).first()
+    installed = device_db.query(InstalledApp).filter(
+        InstalledApp.id == installed_id, InstalledApp.user_id == current_user.id
+    ).first()
     if not installed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

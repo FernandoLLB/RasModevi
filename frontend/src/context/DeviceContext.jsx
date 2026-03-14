@@ -7,6 +7,7 @@ export function DeviceProvider({ children }) {
   const [installedApps, setInstalledApps] = useState([])
   const [activeApp, setActiveApp] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [deviceError, setDeviceError] = useState(null)
   const [installingIds, setInstallingIds] = useState(new Set())
 
   const refresh = useCallback(async () => {
@@ -15,8 +16,10 @@ export function DeviceProvider({ children }) {
       setInstalledApps(apps)
       const active = apps.find(a => a.is_active) || null
       setActiveApp(active)
+      setDeviceError(null)
     } catch (e) {
       console.error('Device refresh error:', e)
+      setDeviceError('No se pudo conectar con el dispositivo. Comprueba que la Pi está encendida y el backend está corriendo.')
     } finally {
       setLoading(false)
     }
@@ -66,6 +69,7 @@ export function DeviceProvider({ children }) {
       installedApps,
       activeApp,
       loading,
+      deviceError,
       installingIds,
       install,
       uninstall,

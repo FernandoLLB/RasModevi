@@ -39,12 +39,30 @@ def _migrate_device_db() -> None:
             ("local_name", "VARCHAR(200)"),
             ("local_description", "TEXT"),
             ("local_icon_url", "VARCHAR(500)"),
+            ("user_id", "INTEGER"),
         ]:
             try:
                 conn.execute(text(f"ALTER TABLE installed_apps ADD COLUMN {col} {definition}"))
                 conn.commit()
             except Exception:
                 pass  # column already exists
+
+        # Add user_id to notes table
+        try:
+            conn.execute(text("ALTER TABLE notes ADD COLUMN user_id INTEGER"))
+            conn.commit()
+        except Exception:
+            pass
+
+        # Drop old unique constraint on store_app_id (SQLite: recreate without it)
+        # The new unique constraint is (user_id, store_app_id) defined in the model.
+        # SQLite doesn't support DROP CONSTRAINT, but new tables get the right schema.
+        # For existing DBs, we just remove the unique index if it exists.
+        try:
+            conn.execute(text("DROP INDEX IF EXISTS ix_installed_apps_store_app_id"))
+            conn.commit()
+        except Exception:
+            pass
 
 
 @asynccontextmanager

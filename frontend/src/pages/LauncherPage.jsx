@@ -21,7 +21,7 @@ function Clock24() {
 }
 
 export default function LauncherPage() {
-  const { installedApps } = useDevice()
+  const { installedApps, deviceError } = useDevice()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -34,10 +34,17 @@ export default function LauncherPage() {
         <Clock24 />
       </div>
 
+      {/* Device error banner */}
+      {deviceError && (
+        <div className="mx-4 sm:mx-6 mb-4 max-w-5xl self-center w-full px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm text-center">
+          {deviceError}
+        </div>
+      )}
+
       {/* App grid */}
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-5xl mx-auto">
-          {installedApps.length === 0 ? (
+          {installedApps.length === 0 && !deviceError ? (
             <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center px-4">
               <div className="text-5xl mb-4 opacity-20">📱</div>
               <p className="text-slate-400 text-sm mb-3">No hay apps instaladas</p>

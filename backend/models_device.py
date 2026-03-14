@@ -35,11 +35,17 @@ from database import DeviceBase
 
 class InstalledApp(DeviceBase):
     __tablename__ = "installed_apps"
-    __table_args__ = (Index("ix_installed_apps_active", "is_active"),)
+    __table_args__ = (
+        Index("ix_installed_apps_active", "is_active"),
+        Index("ix_installed_apps_user", "user_id"),
+        UniqueConstraint("user_id", "store_app_id", name="uq_installed_user_store_app"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # Plain integer — no FK because StoreApp lives in the platform DB (PostgreSQL)
-    store_app_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, unique=True)
+    store_app_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Plain integer — no FK because User lives in the platform DB (MySQL)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     install_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     last_launched: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -117,6 +123,7 @@ class Note(DeviceBase):
     __tablename__ = "notes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     color: Mapped[str] = mapped_column(String(20), default="default")
