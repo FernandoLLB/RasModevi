@@ -61,34 +61,37 @@ export default function AppRunnerPage() {
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-downloads"
       />
 
-      {/* Pull-tab — always visible on left edge, vertically centered */}
-      <button
-        onClick={() => setShowControls(v => !v)}
-        className="fixed top-1/2 -translate-y-1/2 left-0 z-[61] flex items-center justify-center cursor-pointer transition-all duration-300"
-        style={{
-          background: 'rgba(0,0,0,0.25)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderLeft: 'none',
-          borderRadius: '0 12px 12px 0',
-          padding: '18px 8px',
-        }}
-        aria-label="Mostrar controles"
-      >
-        {showControls
-          ? <ChevronLeft size={16} className="text-white/60" />
-          : <ChevronRight size={16} className="text-white/60" />
-        }
-      </button>
+      {/* Pull-tab — full-height column so centering uses flexbox, not transform */}
+      <div className="fixed inset-y-0 left-0 z-[61] flex items-center pointer-events-none">
+        <button
+          onClick={() => setShowControls(v => !v)}
+          className="pointer-events-auto flex items-center justify-center cursor-pointer transition-all duration-300"
+          style={{
+            background: 'rgba(0,0,0,0.25)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderLeft: 'none',
+            borderRadius: '0 12px 12px 0',
+            padding: '18px 8px',
+          }}
+          aria-label="Mostrar controles"
+        >
+          {showControls
+            ? <ChevronLeft size={16} className="text-white/60" />
+            : <ChevronRight size={16} className="text-white/60" />
+          }
+        </button>
+      </div>
 
-      {/* Controls panel — slides in from left */}
-      <div
-        className={`fixed top-1/2 -translate-y-1/2 left-0 z-[60] flex flex-col gap-2 transition-all duration-300 ${
-          showControls ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
-        }`}
-        style={{ paddingLeft: '4px', paddingRight: '10px' }}
-      >
+      {/* Controls panel — full-height column so centering uses flexbox, not transform */}
+      <div className="fixed inset-y-0 left-0 z-[60] flex items-center pointer-events-none">
+        <div
+          className={`flex flex-col gap-2 transition-all duration-300 pointer-events-auto ${
+            showControls ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
+          }`}
+          style={{ paddingLeft: '4px', paddingRight: '10px' }}
+        >
         <button
           onClick={() => navigate('/launcher')}
           className="flex items-center gap-2.5 pl-4 pr-5 py-3.5 rounded-2xl text-slate-200 hover:text-white transition-colors cursor-pointer min-h-[52px] shadow-lg"
@@ -119,6 +122,7 @@ export default function AppRunnerPage() {
           <Maximize2 size={20} />
           <span className="text-sm font-medium">Nueva ventana</span>
         </a>
+        </div>
       </div>
 
       {/* Toast notification */}
