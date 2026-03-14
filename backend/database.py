@@ -63,6 +63,7 @@ def get_platform_db():
     try:
         yield db
     finally:
+        db.rollback()
         db.close()
 
 
@@ -71,6 +72,7 @@ def get_device_db():
     try:
         yield db
     finally:
+        db.rollback()
         db.close()
 
 
