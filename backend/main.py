@@ -54,13 +54,39 @@ def _migrate_device_db() -> None:
         except Exception:
             pass
 
-        # Drop old unique constraint on store_app_id (SQLite: recreate without it)
-        # The new unique constraint is (user_id, store_app_id) defined in the model.
-        # SQLite doesn't support DROP CONSTRAINT, but new tables get the right schema.
-        # For existing DBs, we just remove the unique index if it exists.
+        # SQLite can't drop inline UNIQUE constraints — recreate the table
+        # if it still has the old UNIQUE(store_app_id) instead of UNIQUE(user_id, store_app_id)
         try:
-            conn.execute(text("DROP INDEX IF EXISTS ix_installed_apps_store_app_id"))
-            conn.commit()
+            old_schema = conn.execute(
+                text("SELECT sql FROM sqlite_master WHERE name='installed_apps'")
+            ).scalar() or ""
+            if "UNIQUE (store_app_id)" in old_schema and "UNIQUE (user_id" not in old_schema:
+                conn.execute(text("""
+                    CREATE TABLE installed_apps_new (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        store_app_id INTEGER,
+                        install_date DATETIME NOT NULL,
+                        is_active BOOLEAN NOT NULL,
+                        last_launched DATETIME,
+                        launch_count INTEGER NOT NULL,
+                        install_path VARCHAR(500),
+                        local_name VARCHAR(200),
+                        local_description TEXT,
+                        local_icon_url VARCHAR(500),
+                        user_id INTEGER,
+                        UNIQUE (user_id, store_app_id)
+                    )
+                """))
+                conn.execute(text("""
+                    INSERT INTO installed_apps_new
+                    SELECT id, store_app_id, install_date, is_active, last_launched,
+                           launch_count, install_path, local_name, local_description,
+                           local_icon_url, user_id
+                    FROM installed_apps
+                """))
+                conn.execute(text("DROP TABLE installed_apps"))
+                conn.execute(text("ALTER TABLE installed_apps_new RENAME TO installed_apps"))
+                conn.commit()
         except Exception:
             pass
 
