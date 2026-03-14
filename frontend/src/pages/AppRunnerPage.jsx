@@ -77,33 +77,45 @@ export default function AppRunnerPage() {
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-downloads"
       />
 
-      {/* Transparent hit zone — always on top of iframe, captures touch in top-left corner */}
+      {/* Transparent hit zone — larger on mobile for easier reveal */}
       <div
-        className="fixed top-0 left-0 w-20 h-20 z-[60]"
+        className="fixed top-0 left-0 w-28 h-28 z-[60]"
         onTouchStart={revealBack}
         onMouseEnter={revealBack}
       />
 
-      {/* Back + fullscreen buttons overlay — touch-friendly */}
+      {/* Edge indicator — subtle pull-tab when buttons are hidden */}
       <div
-        className={`fixed top-0 left-0 p-3 sm:p-4 flex items-center gap-2 transition-opacity duration-500 z-[60] ${showBack ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed top-1/2 -translate-y-1/2 left-0 z-[59] transition-all duration-500 ${showBack ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        onTouchStart={revealBack}
+        onClick={revealBack}
+      >
+        <div className="bg-black/50 backdrop-blur-md rounded-r-2xl px-1.5 py-5 border-r border-t border-b border-white/10 flex flex-col items-center gap-1.5 cursor-pointer">
+          <div className="w-1 h-6 rounded-full bg-white/50" />
+          <div className="w-1 h-3 rounded-full bg-white/30" />
+        </div>
+      </div>
+
+      {/* Back + fullscreen buttons overlay */}
+      <div
+        className={`fixed top-3 left-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 transition-all duration-400 z-[60] ${showBack ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
       >
         <button
           onClick={() => navigate('/launcher')}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl glass text-sm text-slate-200 hover:text-white transition-all cursor-pointer min-h-[48px] shadow-xl"
+          className="flex items-center gap-2.5 pl-3.5 pr-5 py-3 rounded-2xl glass text-slate-200 hover:text-white transition-all cursor-pointer min-h-[52px] shadow-xl"
         >
-          <ArrowLeft size={18} />
-          <span className="hidden sm:block">Launcher</span>
+          <ArrowLeft size={22} />
+          <span className="text-sm font-medium">Launcher</span>
         </button>
         <a
           href={appUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-3 rounded-xl glass text-sm text-slate-200 hover:text-white transition-all cursor-pointer min-h-[48px] shadow-xl"
+          className="flex items-center gap-2.5 pl-3.5 pr-5 py-3 rounded-2xl glass text-slate-200 hover:text-white transition-all cursor-pointer min-h-[52px] shadow-xl"
           title="Abrir en ventana completa"
         >
-          <Maximize2 size={18} />
-          <span className="hidden sm:block">Ventana</span>
+          <Maximize2 size={22} />
+          <span className="text-sm font-medium">Nueva ventana</span>
         </a>
       </div>
 
