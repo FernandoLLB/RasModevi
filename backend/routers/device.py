@@ -198,22 +198,12 @@ async def install_app(
             detail={"detail": "App is already installed", "code": "ALREADY_INSTALLED"},
         )
 
-    installed = InstalledApp(
-        store_app_id=store_app_id,
-        is_active=False,
-        local_name=store_app.name,
-        local_icon_url=store_app.icon_path,
-    )
-    device_db.add(installed)
-    device_db.flush()
-
+    # --- Download ZIP BEFORE touching the device DB (avoids SQLite lock) ---
     zip_path = PACKAGES_DIR / str(store_app_id) / "app.zip"
-    install_path = INSTALLED_DIR / str(installed.id)
 
-    # Download ZIP from store API if not available locally
     if not zip_path.exists() and STORE_API_URL:
         try:
-            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 r = await client.get(f"{STORE_API_URL}/api/store/apps/{store_app_id}/package")
                 if r.status_code == 200:
                     zip_path.parent.mkdir(parents=True, exist_ok=True)
@@ -221,41 +211,65 @@ async def install_app(
         except httpx.HTTPError:
             pass  # fall through to demo/empty path
 
-    if zip_path.exists():
-        install_path.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(install_path)
-        installed.install_path = str(install_path)
-        # Fix SDK script src: replace placeholder id=0 with the real installed id
-        index_html = install_path / "index.html"
-        if index_html.exists():
-            html = index_html.read_text(encoding="utf-8")
-            sdk_tag = f'<script src="/api/sdk/app/{installed.id}/sdk.js"></script>'
-            if '/api/sdk/app/0/sdk.js' in html:
-                html = html.replace(
-                    '<script src="/api/sdk/app/0/sdk.js"></script>', sdk_tag, 1
-                )
-            elif sdk_tag not in html:
-                inject_before = "</head>" if "</head>" in html else "</body>"
-                html = html.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
-            index_html.write_text(html, encoding="utf-8")
-    else:
-        demo_path = BACKEND_DIR / "apps" / (store_app.slug or "")
-        if demo_path.exists():
-            installed.install_path = f"apps/{store_app.slug}"
-        else:
+    # --- Now perform all DB writes in a tight block ---
+    try:
+        installed = InstalledApp(
+            store_app_id=store_app_id,
+            is_active=False,
+            local_name=store_app.name,
+            local_icon_url=store_app.icon_path,
+        )
+        device_db.add(installed)
+        device_db.flush()
+
+        install_path = INSTALLED_DIR / str(installed.id)
+
+        if zip_path.exists():
+            install_path.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extractall(install_path)
             installed.install_path = str(install_path)
+            # Fix SDK script src: replace placeholder id=0 with the real installed id
+            index_html = install_path / "index.html"
+            if index_html.exists():
+                html = index_html.read_text(encoding="utf-8")
+                sdk_tag = f'<script src="/api/sdk/app/{installed.id}/sdk.js"></script>'
+                if '/api/sdk/app/0/sdk.js' in html:
+                    html = html.replace(
+                        '<script src="/api/sdk/app/0/sdk.js"></script>', sdk_tag, 1
+                    )
+                elif sdk_tag not in html:
+                    inject_before = "</head>" if "</head>" in html else "</body>"
+                    html = html.replace(inject_before, f"  {sdk_tag}\n{inject_before}", 1)
+                index_html.write_text(html, encoding="utf-8")
+        else:
+            demo_path = BACKEND_DIR / "apps" / (store_app.slug or "")
+            if demo_path.exists():
+                installed.install_path = f"apps/{store_app.slug}"
+            else:
+                installed.install_path = str(install_path)
 
-    # Increment downloads on the platform DB
-    store_app.downloads_count = (store_app.downloads_count or 0) + 1
-    platform_db.commit()
+        device_db.add(ActivityLog(
+            installed_app_id=installed.id,
+            action="install",
+            details=f"Installed '{store_app.name}' v{store_app.version}",
+        ))
+        device_db.commit()
+    except Exception:
+        device_db.rollback()
+        # Clean up extracted files if DB failed
+        install_path = INSTALLED_DIR / str(store_app_id)
+        if install_path.exists():
+            shutil.rmtree(install_path, ignore_errors=True)
+        raise
 
-    device_db.add(ActivityLog(
-        installed_app_id=installed.id,
-        action="install",
-        details=f"Installed '{store_app.name}' v{store_app.version}",
-    ))
-    device_db.commit()
+    # Increment downloads on the platform DB (separate, non-critical)
+    try:
+        store_app.downloads_count = (store_app.downloads_count or 0) + 1
+        platform_db.commit()
+    except Exception:
+        platform_db.rollback()
+
     device_db.refresh(installed)
     return _enrich([installed], platform_db)[0]
 

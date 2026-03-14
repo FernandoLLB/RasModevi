@@ -149,11 +149,17 @@ async def upload_app_package(
             },
         )
 
-    package_url = r2.upload(
-        key=f"packages/{app_id}/app.zip",
-        data=content,
-        content_type="application/zip",
-    )
+    try:
+        package_url = r2.upload(
+            key=f"packages/{app_id}/app.zip",
+            data=content,
+            content_type="application/zip",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"detail": f"Failed to upload package to storage: {exc}", "code": "STORAGE_ERROR"},
+        )
 
     icon_url: str | None = None
     icon_name = manifest.get("icon")
@@ -161,11 +167,14 @@ async def upload_app_package(
         icon_bytes = zf.read(icon_name)
         ext = Path(icon_name).suffix.lower()
         mime = "image/svg+xml" if ext == ".svg" else "image/png" if ext == ".png" else "image/jpeg"
-        icon_url = r2.upload(
-            key=f"icons/{app_id}/{Path(icon_name).name}",
-            data=icon_bytes,
-            content_type=mime,
-        )
+        try:
+            icon_url = r2.upload(
+                key=f"icons/{app_id}/{Path(icon_name).name}",
+                data=icon_bytes,
+                content_type=mime,
+            )
+        except Exception:
+            pass  # icon upload is non-critical
 
     app.package_url = package_url
     if icon_url:
