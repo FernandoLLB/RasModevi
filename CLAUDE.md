@@ -17,7 +17,7 @@ El proyecto está **implementado y funcional**. Backend + frontend completos con
 - **SDK**: ModevI.js servido en `/api/sdk/app/{id}/sdk.js`
 
 ## Estructura de routers (backend)
-- `routers/auth.py` — /api/auth/{register,login,me,refresh} — JWT HS256
+- `routers/auth.py` — /api/auth/{register,login,me,refresh} — JWT HS256 — **registro desactivado** (`REGISTRATION_ENABLED=false`; reactivar en `.env` + Railway vars)
 - `routers/store.py` — /api/store/apps (filtros: search, category_slug, hardware_slug, sort)
 - `routers/developer.py` — /api/developer/apps (CRUD + upload ZIP, rol developer)
 - `routers/admin.py` — /api/admin/apps (aprobar/rechazar, rol admin)

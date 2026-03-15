@@ -57,7 +57,9 @@ Crea una nueva cuenta de usuario.
 }
 ```
 
-**Errores:** `409 USERNAME_TAKEN`, `409 EMAIL_TAKEN`
+**Errores:** `409 USERNAME_TAKEN`, `409 EMAIL_TAKEN`, `403 REGISTRATION_DISABLED`
+
+> **Nota:** El registro está actualmente **desactivado** (`REGISTRATION_ENABLED=false` en `.env` y en las variables de Railway). Para reactivarlo, cambiar la variable a `true` y reiniciar el backend (Pi) / redesplegar (Railway).
 
 ---
 
