@@ -1,6 +1,8 @@
 """Authentication router — register, login, me, refresh."""
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,12 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(body: UserCreate, db: Session = Depends(get_platform_db)):
+    # Set REGISTRATION_ENABLED=true in .env to allow public self-registration
+    if os.getenv("REGISTRATION_ENABLED", "false").lower() != "true":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"detail": "Registration is currently disabled", "code": "REGISTRATION_DISABLED"},
+        )
     if db.query(User).filter(User.username == body.username).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
