@@ -111,7 +111,11 @@ def get_current_user(
 
 
 def require_developer(current_user: User = Depends(get_current_user)) -> User:
-    # Any authenticated user can create and publish apps
+    if current_user.role not in ("developer", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Developer or admin role required",
+        )
     return current_user
 
 

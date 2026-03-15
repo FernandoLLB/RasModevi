@@ -77,11 +77,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_ALLOWED_ORIGINS = [
+    "https://modevi.es",
+    "https://pi.modevi.es",
+    "http://localhost:5173",
+    "http://localhost:8000",
+    "http://192.168.88.242:8000",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
 app.include_router(auth.router)

@@ -1,8 +1,10 @@
 """SDK router — endpoints called by ModevI.js inside app iframes."""
 from __future__ import annotations
 
+import asyncio
 import base64
 import platform
+import re
 import sqlite3
 import time
 from datetime import datetime
@@ -28,6 +30,12 @@ from schemas import (
 )
 
 router = APIRouter(prefix="/api/sdk", tags=["sdk"])
+
+# SQL safety: block statements that could escape the per-app sandbox
+_FORBIDDEN_SQL = re.compile(
+    r'\b(ATTACH|DETACH|PRAGMA|load_extension|VACUUM\s+INTO)\b',
+    re.IGNORECASE,
+)
 
 LIBS_DIR = Path(__file__).resolve().parent.parent / "libs"
 APP_DATA_DIR = Path(__file__).resolve().parent.parent / "app_data"
@@ -111,11 +119,12 @@ async def sdk_system_info():
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
     uptime = int(time.time() - psutil.boot_time())
+    cpu_pct = await asyncio.to_thread(psutil.cpu_percent, interval=None)
 
     return SystemInfo(
         hostname=platform.node(),
         platform=platform.machine(),
-        cpu_percent=psutil.cpu_percent(interval=0.2),
+        cpu_percent=cpu_pct,
         cpu_count=psutil.cpu_count() or 0,
         ram_percent=mem.percent,
         ram_total=mem.total,
@@ -220,6 +229,15 @@ async def delete_app_data_key(
 # ---------------------------------------------------------------------------
 
 
+def _validate_sql(sql: str) -> None:
+    """Reject SQL statements that could escape the per-app database sandbox."""
+    if _FORBIDDEN_SQL.search(sql):
+        raise HTTPException(
+            status_code=400,
+            detail={"detail": "Forbidden SQL statement", "code": "FORBIDDEN_SQL"},
+        )
+
+
 @router.post("/app/{installed_app_id}/db/query")
 async def sdk_db_query(
     installed_app_id: int,
@@ -228,8 +246,10 @@ async def sdk_db_query(
 ):
     """Execute a SELECT and return rows as a list of objects."""
     _get_installed(installed_app_id, db)
+    _validate_sql(body.sql)
     conn = _open_app_db(installed_app_id)
     try:
+        conn.execute("PRAGMA trusted_schema = OFF")
         cur = conn.execute(body.sql, body.params)
         rows = [dict(row) for row in cur.fetchall()]
         return {"rows": rows}
@@ -247,8 +267,10 @@ async def sdk_db_exec(
 ):
     """Execute an INSERT / UPDATE / DELETE / CREATE TABLE. Returns affected rows and last insert id."""
     _get_installed(installed_app_id, db)
+    _validate_sql(body.sql)
     conn = _open_app_db(installed_app_id)
     try:
+        conn.execute("PRAGMA trusted_schema = OFF")
         cur = conn.execute(body.sql, body.params)
         conn.commit()
         return {"changes": cur.rowcount, "last_insert_id": cur.lastrowid}

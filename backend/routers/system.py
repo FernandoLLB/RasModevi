@@ -1,6 +1,7 @@
 """System router — device info and recent activity stats."""
 from __future__ import annotations
 
+import asyncio
 import platform
 import time
 
@@ -8,14 +9,16 @@ import psutil
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from auth import get_current_user
 from database import get_device_db
 from models_device import ActivityLog, InstalledApp
+from models_platform import User
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
 
 @router.get("/info")
-async def system_info():
+async def system_info(_user: User = Depends(get_current_user)):
     temps = psutil.sensors_temperatures() if hasattr(psutil, "sensors_temperatures") else {}
     cpu_temp = None
     if temps:
@@ -27,13 +30,14 @@ async def system_info():
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
     uptime = int(time.time() - psutil.boot_time())
+    cpu_pct = await asyncio.to_thread(psutil.cpu_percent, interval=None)
 
     return {
         "hostname": platform.node(),
         "platform": platform.machine(),
         "os": f"{platform.system()} {platform.release()}",
         "python": platform.python_version(),
-        "cpu_percent": psutil.cpu_percent(interval=0.5),
+        "cpu_percent": cpu_pct,
         "cpu_count": psutil.cpu_count(),
         "cpu_freq": psutil.cpu_freq().current if psutil.cpu_freq() else None,
         "memory_total": mem.total,

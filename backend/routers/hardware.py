@@ -11,8 +11,10 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 import hw
+from auth import get_current_user
 from database import get_device_db
 from models_device import RegisteredSensor
+from models_platform import User
 from schemas import (
     GPIOReadOut, GPIOWriteIn,
     PWMWrite, PWMReadOut,
@@ -29,12 +31,19 @@ router = APIRouter(prefix="/api/hardware", tags=["hardware"])
 
 
 @router.get("/sensors", response_model=List[SensorOut])
-async def list_sensors(db: Session = Depends(get_device_db)):
+async def list_sensors(
+    _user: User = Depends(get_current_user),
+    db: Session = Depends(get_device_db),
+):
     return db.query(RegisteredSensor).order_by(RegisteredSensor.name).all()
 
 
 @router.post("/sensors", response_model=SensorOut, status_code=status.HTTP_201_CREATED)
-async def register_sensor(body: SensorRegister, db: Session = Depends(get_device_db)):
+async def register_sensor(
+    body: SensorRegister,
+    _user: User = Depends(get_current_user),
+    db: Session = Depends(get_device_db),
+):
     sensor = RegisteredSensor(
         name=body.name,
         sensor_type=body.sensor_type,
@@ -51,7 +60,10 @@ async def register_sensor(body: SensorRegister, db: Session = Depends(get_device
 
 @router.put("/sensors/{sensor_id}", response_model=SensorOut)
 async def update_sensor(
-    sensor_id: int, body: SensorUpdate, db: Session = Depends(get_device_db)
+    sensor_id: int,
+    body: SensorUpdate,
+    _user: User = Depends(get_current_user),
+    db: Session = Depends(get_device_db),
 ):
     sensor = db.query(RegisteredSensor).filter(RegisteredSensor.id == sensor_id).first()
     if not sensor:
@@ -64,7 +76,11 @@ async def update_sensor(
 
 
 @router.delete("/sensors/{sensor_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_sensor(sensor_id: int, db: Session = Depends(get_device_db)):
+async def delete_sensor(
+    sensor_id: int,
+    _user: User = Depends(get_current_user),
+    db: Session = Depends(get_device_db),
+):
     sensor = db.query(RegisteredSensor).filter(RegisteredSensor.id == sensor_id).first()
     if not sensor:
         raise HTTPException(status_code=404, detail={"detail": "Sensor not found", "code": "NOT_FOUND"})
@@ -78,7 +94,7 @@ async def delete_sensor(sensor_id: int, db: Session = Depends(get_device_db)):
 
 
 @router.get("/gpio/{pin}", response_model=GPIOReadOut)
-async def gpio_read(pin: int):
+async def gpio_read(pin: int, _user: User = Depends(get_current_user)):
     try:
         value = hw.gpio_read(pin)
         return GPIOReadOut(pin=pin, value=value)
@@ -87,7 +103,7 @@ async def gpio_read(pin: int):
 
 
 @router.post("/gpio/{pin}")
-async def gpio_write(pin: int, body: GPIOWriteIn):
+async def gpio_write(pin: int, body: GPIOWriteIn, _user: User = Depends(get_current_user)):
     try:
         hw.gpio_write(pin, body.value)
         return {"success": True, "mock": not hw.GPIOZERO_AVAILABLE}
@@ -101,12 +117,12 @@ async def gpio_write(pin: int, body: GPIOWriteIn):
 
 
 @router.get("/gpio/{pin}/pwm", response_model=PWMReadOut)
-async def pwm_read(pin: int):
+async def pwm_read(pin: int, _user: User = Depends(get_current_user)):
     return PWMReadOut(pin=pin, duty_cycle=hw.gpio_pwm_get(pin))
 
 
 @router.post("/gpio/{pin}/pwm", response_model=PWMReadOut)
-async def pwm_write(pin: int, body: PWMWrite):
+async def pwm_write(pin: int, body: PWMWrite, _user: User = Depends(get_current_user)):
     try:
         hw.gpio_pwm_set(pin, body.duty_cycle)
         return PWMReadOut(pin=pin, duty_cycle=body.duty_cycle)
@@ -120,7 +136,7 @@ async def pwm_write(pin: int, body: PWMWrite):
 
 
 @router.get("/i2c/{bus}/{address}/{register}", response_model=I2CReadOut)
-async def i2c_read(bus: int, address: int, register: int, length: int = 1):
+async def i2c_read(bus: int, address: int, register: int, length: int = 1, _user: User = Depends(get_current_user)):
     """
     Read `length` bytes from an I2C device.
     - bus: usually 1 on Raspberry Pi
@@ -140,7 +156,7 @@ async def i2c_read(bus: int, address: int, register: int, length: int = 1):
 
 
 @router.get("/camera/snapshot")
-async def camera_snapshot():
+async def camera_snapshot(_user: User = Depends(get_current_user)):
     """Return a single JPEG frame as a base64 data URL."""
     jpeg = await hw.camera_snapshot()
     if jpeg is None:
@@ -150,7 +166,7 @@ async def camera_snapshot():
 
 
 @router.get("/camera/stream")
-async def camera_stream():
+async def camera_stream(_user: User = Depends(get_current_user)):
     """
     MJPEG stream — use directly as <img src="/api/hardware/camera/stream">.
     Streams at ~10 fps until the client disconnects.

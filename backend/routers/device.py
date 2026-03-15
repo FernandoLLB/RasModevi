@@ -238,6 +238,15 @@ async def install_app(
         if zip_path.exists():
             install_path.mkdir(parents=True, exist_ok=True)
             with zipfile.ZipFile(zip_path) as zf:
+                # Validate: reject ZIPs with path traversal entries (zip slip)
+                resolved_dest = install_path.resolve()
+                for member in zf.namelist():
+                    member_path = (install_path / member).resolve()
+                    if not str(member_path).startswith(str(resolved_dest)):
+                        raise HTTPException(
+                            status_code=400,
+                            detail={"detail": f"Zip contains path traversal: {member}", "code": "ZIP_SLIP"},
+                        )
                 zf.extractall(install_path)
             installed.install_path = str(install_path)
             # Fix SDK script src: replace placeholder id=0 with the real installed id

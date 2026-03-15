@@ -1317,6 +1317,10 @@ async def _stream(
         install_path = INSTALLED_DIR / str(installed.id)
         install_path.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            resolved_dest = install_path.resolve()
+            for member in zf.namelist():
+                if not (install_path / member).resolve().is_relative_to(resolved_dest):
+                    raise ValueError(f"Zip slip detected: {member}")
             zf.extractall(install_path)
         installed.install_path = str(install_path)
 
