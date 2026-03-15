@@ -73,10 +73,11 @@ export default function LoginPage() {
             {loading ? 'Entrando...' : 'Iniciar sesión'}
           </button>
 
-          <p className="text-center text-sm text-slate-500">
+          {/* Registration link — uncomment when REGISTRATION_ENABLED=true */}
+          {/* <p className="text-center text-sm text-slate-500">
             ¿No tienes cuenta?{' '}
             <Link to="/register" className="text-indigo-400 hover:text-indigo-300 transition-colors">Regístrate</Link>
-          </p>
+          </p> */}
         </form>
       </div>
     </div>

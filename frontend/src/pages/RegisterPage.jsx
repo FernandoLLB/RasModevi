@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { UserPlus, AlertCircle, User, Code2 } from 'lucide-react'
+import { UserPlus, AlertCircle, User, Code2, Lock } from 'lucide-react'
+
+const REGISTRATION_ENABLED = false // Set to true to re-enable public registration
 import Logo from '../components/Logo'
 import { useAuth } from '../context/AuthContext'
 
@@ -27,6 +29,25 @@ export default function RegisterPage() {
   }
 
   const inputClass = 'w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 transition-all min-h-[48px]'
+
+  if (!REGISTRATION_ENABLED) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-sm">
+          <div className="flex flex-col items-center mb-8">
+            <Logo size={48} />
+            <h1 className="text-xl font-bold mt-3 gradient-text">Crear cuenta</h1>
+          </div>
+          <div className="card p-6 flex flex-col items-center gap-4 text-center">
+            <Lock size={32} className="text-slate-400" />
+            <p className="text-slate-300 font-medium">El registro está desactivado</p>
+            <p className="text-sm text-slate-500">Las cuentas nuevas son creadas por el administrador.</p>
+            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 transition-colors text-sm">Volver al inicio de sesión</Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
